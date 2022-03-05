@@ -28,8 +28,8 @@ Notation "'A'" := (0%fin). Notation "'B'" := (1%fin). Notation "'C'" := (2%fin).
 Notation "'D'" := (3%fin). Notation "'E'" := (4%fin).
 Notation "i ~ j" := (RE_Literal (i, j)) (at level 30, format "i ~ j").
 
-Definition graph : mat _ 5 5 := mat_build
-  (λ i j, if Ex1.adj@i@j then i ~ j else ∅).
+Definition graph := mat_build
+  (λ i j : fin 5, if Ex1.adj@i@j then i ~ j else ∅).
 
 (* The resulting regular expression represents *)
 (* _all_ possible paths from node A to node D. *)

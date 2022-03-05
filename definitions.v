@@ -31,7 +31,7 @@ Class Comm_Monoid (X : Type) (R : relation X) (f : X -> X -> X) (id : X)
 
 Class Semiring (X : Type)
   `{Equiv X, Equivalence X (≡)}
-  `{Zero X, One X, Add X, Mul X}
+  `{Add X, Mul X, Zero X, One X}
   `{Comm_Monoid _ (≡) add 0, Monoid _ (≡) mul 1}
   `{LeftDistr _ (≡) mul add, RightDistr _ (≡) mul add}
   `{LeftAbsorb _ (≡) 0 mul, RightAbsorb _ (≡) 0 mul}.
