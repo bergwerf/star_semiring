@@ -20,7 +20,24 @@ Definition mat_map {X Y} f : mat X m n -> mat Y m n :=
 Definition mat_zip {X Y Z} f : mat X m n -> mat Y m n -> mat Z m n :=
   vzip_with (vzip_with f).
 
-Lemma vzip_with_lookup {X Y Z} (f : X -> Y -> Z) u v (i : fin n) :
+Lemma vlookup_conv {X k} (u : vec X k) i : u@i = u !!! i.
+Proof. done. Qed.
+
+Lemma vlookup_vseq {k} i :
+  vseq k !!! i = i.
+Proof.
+induction i; simpl. done.
+rewrite vlookup_map, IHi; done.
+Qed.
+
+Lemma lookup_mat_build {X} (f : fin m -> fin n -> X) i j :
+  (mat_build f)@i@j = f i j.
+Proof.
+unfold mat_build; rewrite ?vlookup_conv,
+?vlookup_map, ?vlookup_vseq; done.
+Qed.
+
+Lemma lookup_vzip_with {X Y Z} (f : X -> Y -> Z) u v (i : fin n) :
   (vzip_with f u v)@i = f (u@i) (v@i).
 Proof.
 induction i; inv_vec u; inv_vec v;
@@ -51,7 +68,7 @@ Global Instance : Add vec := vzip_with add.
 Global Instance : Zero vec := vreplicate n 0.
 
 Lemma vec_add_lookup u v i : (u + v)@i = u@i + v@i.
-Proof. apply vzip_with_lookup. Qed.
+Proof. apply lookup_vzip_with. Qed.
 
 Lemma vec_zero_lookup i : 0@i = 0.
 Proof. apply vlookup_replicate. Qed.
@@ -72,13 +89,39 @@ Section Matrix_multiplication.
 
 Variable X : Type.
 
+Context `{Equiv X, Equivalence X (≡)}.
 Context `{Add X, Mul X, Zero X}.
 
-Definition mat_dot {m n k} (a : mat X m k) (b : mat X k n) i j : X :=
-  srsum (vmap (λ k, a@i@k * b@k@j) (vseq k)).
+Notation Σ n f := (srsum (vmap f (vseq n))).
 
-Definition mat_mul {m n k} (a : mat X m k) (b : mat X k n) : mat X m n :=
+Definition mat_dot {m n p} (a : mat X m n) (b : mat X n p) i j : X :=
+  Σ n (λ k, a@i@k * b@k@j).
+
+Definition mat_mul {m n p} (a : mat X m n) (b : mat X n p) : mat X m p :=
   mat_build (mat_dot a b).
+
+Notation "a × b" := (mat_mul a b) (at level 50).
+
+Variable m n p q : nat.
+Variable a : mat X m n.
+Variable b : mat X n p.
+Variable c : mat X p q.
+
+Lemma mat_mul_assoc0 i j :
+  (a × (b × c))@i@j = Σ p (λ k, Σ n (λ l, a@i@l * b@l@k * c@k@j)).
+Proof.
+Admitted.
+
+Lemma mat_mul_assoc1 i j :
+  ((a × b) × c)@i@j = Σ p (λ k, Σ n (λ l, a@i@l * b@l@k * c@k@j)).
+Proof.
+Admitted.
+
+Theorem mat_mul_assoc :
+  a × (b × c) ≡ (a × b) × c.
+Proof.
+intros i j; rewrite mat_mul_assoc0, mat_mul_assoc1; done.
+Qed.
 
 End Matrix_multiplication.
 
@@ -104,7 +147,9 @@ Definition mat_plus (m : mat) : mat :=
 Global Instance : Star mat :=
   λ m, 1 + mat_plus m.
 
-Global Instance : @Assoc mat (≡) mul. Admitted.
+Global Instance : @Assoc mat (≡) mul.
+Proof. intros a b c; apply mat_mul_assoc; done. Qed.
+
 Global Instance : @LeftId mat (≡) 1 mul. Admitted.
 Global Instance : @RightId mat (≡) 1 mul. Admitted.
 Global Instance : @LeftAbsorb mat (≡) 0 mul. Admitted.
