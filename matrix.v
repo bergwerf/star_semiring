@@ -85,7 +85,7 @@ End Vector.
 
 Section Matrix_multiplication.
 
-Context `{Semiring X}.
+Context `{SR : Semiring X}.
 
 Notation "`[ n ]`" := (vec_to_list (vseq n)) (format "`[ n ]`").
 
@@ -102,23 +102,42 @@ Variable a : mat X m n.
 Variable b : mat X n p.
 Variable c : mat X p q.
 
-Lemma mat_mul_assoc0 i j :
+
+Lemma mat_mul_assoc_normalize_left i j :
+  ((a×b)×c)@i@j ≡ Σ ((λ k, Σ ((λ l, a@i@l * b@l@k * c@k@j)<$>`[n]`))<$>`[p]`).
+Proof.
+unfold mat_mul; rewrite lookup_mat_build; unfold mat_dot at 1.
+erewrite list_fmap_ext with (g:=λ k, mat_dot a b i k * c@k@j).
+3: reflexivity. 2: intros k; rewrite lookup_mat_build; done. unfold mat_dot.
+etransitivity. apply Σ_equiv, Forall2_fmap, Forall_Forall2_diag, Forall_forall.
+intros k _; apply Σ_right_distr. erewrite list_fmap_ext. 3: reflexivity.
+2: intros k; rewrite <-list_fmap_compose; unfold compose; done.
+apply Σ_equiv, Forall2_fmap, Forall_Forall2_diag, Forall_forall; intros k _.
+apply Σ_equiv, Forall2_fmap, Forall_Forall2_diag, Forall_forall; intros l _.
+done.
+Qed.
+
+Lemma mat_mul_assoc_normalize_right i j :
   (a×(b×c))@i@j ≡ Σ ((λ k, Σ ((λ l, a@i@l * b@l@k * c@k@j)<$>`[n]`))<$>`[p]`).
 Proof.
 unfold mat_mul; rewrite lookup_mat_build; unfold mat_dot at 1.
 erewrite list_fmap_ext with (g:=λ l, a@i@l * mat_dot b c l j).
-2: intros k; rewrite lookup_mat_build; done. 2: reflexivity.
-Admitted.
-
-Lemma mat_mul_assoc1 i j :
-  ((a×b)×c)@i@j ≡ Σ ((λ k, Σ ((λ l, a@i@l * b@l@k * c@k@j)<$>`[n]`))<$>`[p]`).
-Proof.
-Admitted.
+3: reflexivity. 2: intros k; rewrite lookup_mat_build; done. unfold mat_dot.
+etransitivity. apply Σ_equiv, Forall2_fmap, Forall_Forall2_diag, Forall_forall.
+intros l _; apply Σ_left_distr. erewrite list_fmap_ext. 3: reflexivity.
+2: intros l; rewrite <-list_fmap_compose; unfold compose; done.
+rewrite Σ_swap_index.
+apply Σ_equiv, Forall2_fmap, Forall_Forall2_diag, Forall_forall; intros k _.
+apply Σ_equiv, Forall2_fmap, Forall_Forall2_diag, Forall_forall; intros l _.
+apply assoc; c.
+Qed.
 
 Theorem mat_mul_assoc :
   a × (b × c) ≡ (a × b) × c.
 Proof.
-intros i j; rewrite mat_mul_assoc0, mat_mul_assoc1; done.
+intros i j;
+rewrite mat_mul_assoc_normalize_left;
+rewrite mat_mul_assoc_normalize_right; done.
 Qed.
 
 End Matrix_multiplication.
@@ -132,7 +151,7 @@ Notation mat := (mat X n n).
 Implicit Types a b c : mat.
 Implicit Types i j k : fin n.
 
-Context `{Star_Semiring X}.
+Context `{SR : Star_Semiring X}.
 
 Global Instance : One mat := mat_build (λ i j, if i =? j then 1 else 0).
 Global Instance : Mul mat := mat_mul.

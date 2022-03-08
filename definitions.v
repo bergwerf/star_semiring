@@ -88,6 +88,9 @@ Class Kleene_Algebra
 }.
 
 Ltac c := typeclasses eauto.
+Ltac split_proper := apply Semigroup_Proper.
+Ltac cancel_l := split_proper; [reflexivity|].
+Ltac cancel_r := split_proper; [|reflexivity].
 
 Section Lemmas.
 
@@ -111,5 +114,17 @@ induction xs; simpl. apply left_absorb; c.
 etransitivity. apply right_distr.
 rewrite IHxs; done.
 Qed.
+
+Lemma Σ_equiv xs ys :
+  Forall2 (≡) xs ys -> Σ xs ≡ Σ ys.
+Proof.
+revert ys; induction xs; intros ys Heq; inversion_clear Heq; cbn.
+done. rewrite H, IHxs; done.
+Qed.
+
+Lemma Σ_swap_index {I J} (f : I -> J -> X) is js :
+  Σ ((λ i, Σ (f i <$> js)) <$> is) ≡ Σ ((λ j, Σ ((λ i, f i j) <$> is)) <$> js).
+Proof.
+Admitted.
 
 End Lemmas.
