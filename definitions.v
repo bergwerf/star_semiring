@@ -7,8 +7,8 @@ Class Add (X : Type) := add : X -> X -> X.
 Class Mul (X : Type) := mul : X -> X -> X.
 Class Star (X : Type) := star : X -> X.
 
-Definition srsum {X} `{Add X, Zero X} : list X -> X := foldr add zero.
-Definition srprod {X} `{Mul X, One X} : list X -> X := foldr mul one.
+Definition Σ {X} `{Add X, Zero X} : list X -> X := foldr add zero.
+Definition Π {X} `{Mul X, One X} : list X -> X := foldr mul one.
 
 Notation "0" := (zero). 
 Notation "1" := (one).
@@ -18,30 +18,98 @@ Notation "x '{*}'" := (star x) (at level 30, format "x '{*}'").
 Notation "a ⪯ b" := (a + b ≡ b) (at level 70).
 
 Class LeftDistr {X} (R : relation X) (f g : X -> X -> X) :=
-  distr_l a x y : R (f a (g x y)) (g (f a x) (f a y)).
+  left_distr a x y : R (f a (g x y)) (g (f a x) (f a y)).
 
 Class RightDistr {X} (R : relation X) (f g : X -> X -> X) :=
-  distr_r x y a : R (f (g x y) a) (g (f x a) (f y a)).
+  right_distr x y a : R (f (g x y) a) (g (f x a) (f y a)).
 
-Class Monoid (X : Type) (R : relation X) (f : X -> X -> X) (id : X)
-  `{Assoc _ R f, LeftId _ R id f, RightId _ R id f}.
-
-Class Comm_Monoid (X : Type) (R : relation X) (f : X -> X -> X) (id : X)
-  `{Monoid _ R f id, Comm _ _ R f}.
-
-Class Semiring (X : Type)
-  `{Equiv X, Equivalence X (≡)}
-  `{Add X, Mul X, Zero X, One X}
-  `{Comm_Monoid _ (≡) add 0, Monoid _ (≡) mul 1}
-  `{LeftDistr _ (≡) mul add, RightDistr _ (≡) mul add}
-  `{LeftAbsorb _ (≡) 0 mul, RightAbsorb _ (≡) 0 mul}.
-
-Class Star_Semiring (X : Type) `{Semiring X, Star X} := {
-  star_expand_l x : x{*} ≡ 1 + x * x{*};
-  star_expand_r x : x{*} ≡ 1 + x{*} * x;
+Class Semigroup
+  (X : Type) (R : relation X) (f : X -> X -> X) : Prop :=
+{
+  Semigroup_Proper              :> Proper (R ==> R ==> R) f;
+  Semigroup_Assoc               :> Assoc R f;
 }.
 
-Class Kleene_Algebra (X : Type) `{Star_Semiring X, IdemP _ (≡) add} := {
-  star_intro_l a x : a * x ⪯ x -> a{*} * x ⪯ x;
-  star_intro_r a x : x * a ⪯ x -> x * a{*} ⪯ x;
+Class Comm_Semigroup
+  (X : Type) (R : relation X) (f : X -> X -> X) : Prop :=
+{
+  Comm_Semigroup_Semigroup      :> Semigroup X R f;
+  Comm_Semigroup_Comm           :> Comm R f;
 }.
+
+Class Monoid
+  (X : Type) (R : relation X) (f : X -> X -> X) (unit : X) : Prop :=
+{
+  Monoid_Semigroup              :> Semigroup X R f;
+  Monoid_LeftId                 :> LeftId R unit f;
+  Monoid_RightId                :> RightId R unit f;
+}.
+
+Class Comm_Monoid
+  (X : Type) (R : relation X) (f : X -> X -> X) (unit : X) : Prop :=
+{
+  Comm_Monoid_Monoid            :> Monoid X R f unit;
+  Comm_Monoid_Comm              :> Comm R f;
+}.
+
+Class Semiring
+  (X : Type)
+  `{_equiv : Equiv X, _add : Add X, _mul : Mul X}
+  `{_zero : Zero X, _one : One X} : Prop :=
+{
+  Semiring_Equivalence          :> Equivalence (≡);
+  Semiring_Comm_Monoid          :> Comm_Monoid X (≡) add 0;
+  Semiring_Monoid               :> Monoid X (≡) mul 1;
+  Semiring_LeftDistr            :> @LeftDistr X (≡) mul add;
+  Semiring_RightDistr           :> @RightDistr X (≡) mul add;
+  Semiring_LeftAbsorb           :> @LeftAbsorb X (≡) 0 mul;
+  Semiring_RightAbsorb          :> @RightAbsorb X (≡) 0 mul;
+}.
+
+Class Star_Semiring
+  (X : Type)
+  `{_equiv : Equiv X, _add : Add X, _mul : Mul X, _star : Star X}
+  `{_zero : Zero X, _one : One X} : Prop :=
+{
+  Star_Semiring_Semiring        :> Semiring X;
+  left_expand_star x            : x{*} ≡ 1 + x * x{*};
+  right_expand_star x           : x{*} ≡ 1 + x{*} * x;
+}.
+
+Class Kleene_Algebra
+  (X : Type)
+  `{_equiv : Equiv X, _add : Add X, _mul : Mul X, _star : Star X}
+  `{_zero : Zero X, _one : One X} : Prop :=
+{
+  Kleene_Algebra_Star_Semiring  :> Star_Semiring X;
+  Kleene_Algebra_IdemP          :> @IdemP X (≡) add;
+  left_intro_star a x           : a * x ⪯ x -> a{*} * x ⪯ x;
+  right_intro_star a x          : x * a ⪯ x -> x * a{*} ⪯ x;
+}.
+
+Ltac c := typeclasses eauto.
+
+Section Lemmas.
+
+Context `{SR : Semiring X}.
+
+Implicit Types x y : X.
+Implicit Types xs : list X.
+
+Lemma Σ_left_distr xs y :
+  y * Σ xs ≡ Σ ((λ x, y * x) <$> xs).
+Proof.
+induction xs; simpl. apply right_absorb; c.
+etransitivity. apply left_distr.
+rewrite IHxs; done.
+Qed.
+
+Lemma Σ_right_distr xs y :
+  Σ xs * y ≡ Σ ((λ x, x * y) <$> xs).
+Proof.
+induction xs; simpl. apply left_absorb; c.
+etransitivity. apply right_distr.
+rewrite IHxs; done.
+Qed.
+
+End Lemmas.

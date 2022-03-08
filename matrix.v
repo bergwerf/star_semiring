@@ -73,29 +73,24 @@ Proof. apply lookup_vzip_with. Qed.
 Lemma vec_zero_lookup i : 0@i = 0.
 Proof. apply vlookup_replicate. Qed.
 
-Ltac prove := repeat intros ?; rewrite ?vec_add_lookup, ?vec_zero_lookup; done.
-
-Global Instance : Assoc (≡) add. prove. Qed.
-Global Instance : LeftId (≡) 0 add. prove. Qed.
-Global Instance : RightId (≡) 0 add. prove. Qed.
-Global Instance : Comm (≡) add. prove. Qed.
-
-Global Instance : Monoid vec (≡) add 0. Qed.
-Global Instance : Comm_Monoid vec (≡) add 0. Qed.
+Global Instance : Comm_Monoid vec (≡) add 0.
+Proof.
+repeat split.
+intros a b Hab u v Huv i; rewrite ?vec_add_lookup, (Hab i), (Huv i); done.
+all: repeat intros ?; rewrite ?vec_add_lookup, ?vec_zero_lookup.
+apply assoc; c. apply left_id; c. apply right_id; c. apply comm; c.
+Qed.
 
 End Vector.
 
 Section Matrix_multiplication.
 
-Variable X : Type.
+Context `{Semiring X}.
 
-Context `{Equiv X, Equivalence X (≡)}.
-Context `{Add X, Mul X, Zero X}.
-
-Notation Σ n f := (srsum (vmap f (vseq n))).
+Notation "`[ n ]`" := (vec_to_list (vseq n)) (format "`[ n ]`").
 
 Definition mat_dot {m n p} (a : mat X m n) (b : mat X n p) i j : X :=
-  Σ n (λ k, a@i@k * b@k@j).
+  Σ ((λ k, a@i@k * b@k@j) <$> `[n]`).
 
 Definition mat_mul {m n p} (a : mat X m n) (b : mat X n p) : mat X m p :=
   mat_build (mat_dot a b).
@@ -108,12 +103,15 @@ Variable b : mat X n p.
 Variable c : mat X p q.
 
 Lemma mat_mul_assoc0 i j :
-  (a × (b × c))@i@j = Σ p (λ k, Σ n (λ l, a@i@l * b@l@k * c@k@j)).
+  (a×(b×c))@i@j ≡ Σ ((λ k, Σ ((λ l, a@i@l * b@l@k * c@k@j)<$>`[n]`))<$>`[p]`).
 Proof.
+unfold mat_mul; rewrite lookup_mat_build; unfold mat_dot at 1.
+erewrite list_fmap_ext with (g:=λ l, a@i@l * mat_dot b c l j).
+2: intros k; rewrite lookup_mat_build; done. 2: reflexivity.
 Admitted.
 
 Lemma mat_mul_assoc1 i j :
-  ((a × b) × c)@i@j = Σ p (λ k, Σ n (λ l, a@i@l * b@l@k * c@k@j)).
+  ((a×b)×c)@i@j ≡ Σ ((λ k, Σ ((λ l, a@i@l * b@l@k * c@k@j)<$>`[n]`))<$>`[p]`).
 Proof.
 Admitted.
 
@@ -137,7 +135,7 @@ Implicit Types i j k : fin n.
 Context `{Star_Semiring X}.
 
 Global Instance : One mat := mat_build (λ i j, if i =? j then 1 else 0).
-Global Instance : Mul mat := mat_mul _.
+Global Instance : Mul mat := mat_mul.
 
 (* The Gauss-Jordan-Floyd-Warshall-Kleene algorithm. *)
 Definition mat_plus (m : mat) : mat :=
@@ -157,9 +155,8 @@ Global Instance : @RightAbsorb mat (≡) 0 mul. Admitted.
 Global Instance : @LeftDistr mat (≡) mul add. Admitted.
 Global Instance : @RightDistr mat (≡) mul add. Admitted.
 
-Global Instance : Monoid mat (≡) mul 1. Qed.
-Global Instance : Semiring mat. Qed.
-Global Instance : Star_Semiring mat. Admitted.
+Global Instance : Star_Semiring mat.
+Proof. repeat split; try c. Admitted.
 
 Definition mat_transpose (m : mat) : mat :=
   mat_build (λ i j, m@j@i).
