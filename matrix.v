@@ -102,19 +102,19 @@ Variable a : mat X m n.
 Variable b : mat X n p.
 Variable c : mat X p q.
 
+Local Ltac Σ_equiv_reduce :=
+  apply Σ_equiv, Forall2_fmap, Forall_Forall2_diag, Forall_forall.
 
 Lemma mat_mul_assoc_normalize_left i j :
   ((a×b)×c)@i@j ≡ Σ ((λ k, Σ ((λ l, a@i@l * b@l@k * c@k@j)<$>`[n]`))<$>`[p]`).
 Proof.
 unfold mat_mul; rewrite lookup_mat_build; unfold mat_dot at 1.
 erewrite list_fmap_ext with (g:=λ k, mat_dot a b i k * c@k@j).
-3: reflexivity. 2: intros k; rewrite lookup_mat_build; done. unfold mat_dot.
-etransitivity. apply Σ_equiv, Forall2_fmap, Forall_Forall2_diag, Forall_forall.
-intros k _; apply Σ_right_distr. erewrite list_fmap_ext. 3: reflexivity.
-2: intros k; rewrite <-list_fmap_compose; unfold compose; done.
-apply Σ_equiv, Forall2_fmap, Forall_Forall2_diag, Forall_forall; intros k _.
-apply Σ_equiv, Forall2_fmap, Forall_Forall2_diag, Forall_forall; intros l _.
-done.
+3: reflexivity. 2: intros k; rewrite lookup_mat_build; done.
+unfold mat_dot. etransitivity.
+Σ_equiv_reduce; intros k _; apply Σ_right_distr. erewrite list_fmap_ext.
+3: reflexivity. 2: intros k; rewrite <-list_fmap_compose; unfold compose; done.
+Σ_equiv_reduce; intros k _. Σ_equiv_reduce; intros l _. done.
 Qed.
 
 Lemma mat_mul_assoc_normalize_right i j :
@@ -122,13 +122,11 @@ Lemma mat_mul_assoc_normalize_right i j :
 Proof.
 unfold mat_mul; rewrite lookup_mat_build; unfold mat_dot at 1.
 erewrite list_fmap_ext with (g:=λ l, a@i@l * mat_dot b c l j).
-3: reflexivity. 2: intros k; rewrite lookup_mat_build; done. unfold mat_dot.
-etransitivity. apply Σ_equiv, Forall2_fmap, Forall_Forall2_diag, Forall_forall.
-intros l _; apply Σ_left_distr. erewrite list_fmap_ext. 3: reflexivity.
-2: intros l; rewrite <-list_fmap_compose; unfold compose; done.
-rewrite Σ_swap_index.
-apply Σ_equiv, Forall2_fmap, Forall_Forall2_diag, Forall_forall; intros k _.
-apply Σ_equiv, Forall2_fmap, Forall_Forall2_diag, Forall_forall; intros l _.
+3: reflexivity. 2: intros k; rewrite lookup_mat_build; done.
+unfold mat_dot. etransitivity.
+Σ_equiv_reduce; intros l _; apply Σ_left_distr. erewrite list_fmap_ext.
+3: reflexivity. 2: intros l; rewrite <-list_fmap_compose; unfold compose; done.
+rewrite Σ_swap_index. Σ_equiv_reduce; intros k _. Σ_equiv_reduce; intros l _.
 apply assoc; c.
 Qed.
 

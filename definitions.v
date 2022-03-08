@@ -123,7 +123,8 @@ done. rewrite H, IHxs; done.
 Qed.
 
 Lemma Σ_swap_index {I J} (f : I -> J -> X) is js :
-  Σ ((λ i, Σ (f i <$> js)) <$> is) ≡ Σ ((λ j, Σ ((λ i, f i j) <$> is)) <$> js).
+  Σ ((λ i, Σ ((λ j, f i j) <$> js)) <$> is) ≡
+  Σ ((λ j, Σ ((λ i, f i j) <$> is)) <$> js).
 Proof.
 Admitted.
 
