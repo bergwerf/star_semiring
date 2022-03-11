@@ -6,18 +6,31 @@ Notation "v @ i" := (vector_lookup_total _ _ i v)
 
 Section Vector_utilities.
 
+Section Vector_indices.
+
 Fixpoint vseq (n : nat) : vec (fin n) n :=
   match n with O => [# ] | S m => Fin.F1 ::: vmap FS (vseq m) end.
 
 Lemma NoDup_vseq n :
   NoDup (vseq n).
 Proof.
-Admitted.
+induction n; cbn. apply NoDup_nil; done.
+rewrite vec_to_list_map; apply NoDup_cons; split.
+- intros H; apply elem_of_list_fmap in H as (i & H & _); done.
+- apply NoDup_fmap. intros i j H; apply Fin.FS_inj, H. apply IHn.
+Qed.
 
 Lemma elem_of_vseq n (i : fin n) :
   i ∈ vec_to_list (vseq n).
 Proof.
-Admitted.
+induction n; cbn; inv_fin i; intros.
+apply elem_of_list_here. apply elem_of_list_further.
+rewrite vec_to_list_map; apply elem_of_list_fmap_1, IHn.
+Qed.
+
+End Vector_indices.
+
+Section Vector_lookups.
 
 Context {m n : nat}.
 
@@ -61,6 +74,8 @@ revert b; induction a; intros; inv_vec b; intros. done.
 assert(H0 := H 0%fin); cbn in H0; subst. f_equal; apply IHa; intros i.
 assert(HS := H (FS i)); cbn in HS; done.
 Qed.
+
+End Vector_lookups.
 
 End Vector_utilities.
 
