@@ -9,6 +9,16 @@ Section Vector_utilities.
 Fixpoint vseq (n : nat) : vec (fin n) n :=
   match n with O => [# ] | S m => Fin.F1 ::: vmap FS (vseq m) end.
 
+Lemma NoDup_vseq n :
+  NoDup (vseq n).
+Proof.
+Admitted.
+
+Lemma elem_of_vseq n (i : fin n) :
+  i ∈ vec_to_list (vseq n).
+Proof.
+Admitted.
+
 Context {m n : nat}.
 
 Definition mat_build {X} (f : fin m -> fin n -> X) : mat X m n :=
@@ -216,17 +226,20 @@ Proof. apply lookup_mat_build. Qed.
 Lemma lookup_mul a b i j : (a * b)@i@j = Σ ((λ k, a@i@k * b@k@j) <$> `[n]`).
 Proof. apply lookup_mat_mul. Qed.
 
-Lemma Σ_of_indicator (x : X) k :
-  k < n -> Σ ((λ i, if k =? i then x else 0) <$> `[n]`) ≡ x.
+Lemma Σ_eqb_indicator (x : X) j :
+  j < n -> Σ ((λ i, if i =? j then x else 0) <$> `[n]`) ≡ x.
 Proof.
-Admitted.
+intros; eapply Σ_indicator with (f:=λ _, x)(j0:=j).
+intros; split; intros Heq. apply Nat.eqb_eq, fin_to_nat_inj in Heq; done.
+rewrite Heq; apply Nat.eqb_refl. apply NoDup_vseq. apply elem_of_vseq.
+Qed.
 
 Global Instance :
   @LeftId mat (≡) 1 mul.
 Proof.
 intros a i j; erewrite lookup_mul, equiv_Σ_fmap.
-apply Σ_of_indicator with (k:=i), fin_to_nat_lt.
-intros k _; rewrite lookup_one; destruct (i =? k) eqn:E.
+apply Σ_eqb_indicator with (j:=i), fin_to_nat_lt.
+intros k _; rewrite lookup_one, Nat.eqb_sym; destruct (k =? i) eqn:E.
 apply Nat.eqb_eq, fin_to_nat_inj in E; subst k.
 apply left_id; c. apply left_absorb; c.
 Qed.
@@ -234,7 +247,12 @@ Qed.
 Global Instance :
   @RightId mat (≡) 1 mul.
 Proof.
-Admitted.
+intros a i j; erewrite lookup_mul, equiv_Σ_fmap.
+apply Σ_eqb_indicator with (j:=j), fin_to_nat_lt.
+intros k _; rewrite lookup_one; destruct (k =? j) eqn:E.
+apply Nat.eqb_eq, fin_to_nat_inj in E; subst k.
+apply right_id; c. apply right_absorb; c.
+Qed.
 
 Global Instance : @LeftDistr mat (≡) mul add. Admitted.
 Global Instance : @RightDistr mat (≡) mul add. Admitted.

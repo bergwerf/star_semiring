@@ -158,4 +158,20 @@ revert js; induction is; cbn; intros.
   apply Forall2_cons; done.
 Qed.
 
+Lemma Σ_indicator {I} (δ : I -> bool) (f : I -> X) j is :
+  (∀ i, δ i = true <-> j = i) -> NoDup is -> j ∈ is ->
+  Σ ((λ i, if δ i then f i else 0) <$> is) ≡ f j.
+Proof.
+induction is as [|i is]; intros Hδ Hdup Hin; cbn.
+apply elem_of_nil in Hin; done.
+apply NoDup_cons in Hdup as (H1 & H2).
+apply elem_of_cons in Hin as [].
+- apply Hδ in H as Hδi; subst; rewrite Hδi, equiv_Σ_0.
+  apply right_id; c. apply Forall_forall; intros x Hx.
+  apply elem_of_list_fmap in Hx as (k & -> & Hk); destruct (δ k) eqn:E.
+  apply Hδ in E; subst; done. done.
+- rewrite IHis; try done. destruct (δ i) eqn:E.
+  apply Hδ in E; subst; done. apply left_id; c.
+Qed.
+
 End Lemmas.
