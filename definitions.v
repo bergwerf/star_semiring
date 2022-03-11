@@ -102,14 +102,14 @@ Implicit Types xs : list X.
 Lemma Σ_left_distr xs y :
   y * Σ xs ≡ Σ ((λ x, y * x) <$> xs).
 Proof.
-induction xs; simpl. apply right_absorb; c.
+induction xs; cbn. apply right_absorb; c.
 etrans. apply left_distr. rewrite IHxs; done.
 Qed.
 
 Lemma Σ_right_distr xs y :
   Σ xs * y ≡ Σ ((λ x, x * y) <$> xs).
 Proof.
-induction xs; simpl. apply left_absorb; c.
+induction xs; cbn. apply left_absorb; c.
 etrans. apply right_distr. rewrite IHxs; done.
 Qed.
 

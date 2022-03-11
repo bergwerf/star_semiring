@@ -2,6 +2,7 @@
 
 definitions.v
 arithmetic.v
-matrix.v
 regular.v
+matrix.v
+asterate.v
 examples.v

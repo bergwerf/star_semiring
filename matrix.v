@@ -4,7 +4,7 @@ Notation mat X m n := (vec (vec X n) m).
 Notation "v @ i" := (vector_lookup_total _ _ i v)
   (left associativity, at level 25, format "v @ i").
 
-Section Polymorphic.
+Section Vector_utilities.
 
 Fixpoint vseq (n : nat) : vec (fin n) n :=
   match n with O => [# ] | S m => Fin.F1 ::: vmap FS (vseq m) end.
@@ -26,7 +26,7 @@ Proof. done. Qed.
 Lemma vlookup_vseq {k} i :
   vseq k !!! i = i.
 Proof.
-induction i; simpl. done.
+induction i; cbn. done.
 rewrite vlookup_map, IHi; done.
 Qed.
 
@@ -41,12 +41,20 @@ Lemma lookup_vzip_with {X Y Z} (f : X -> Y -> Z) u v (i : fin n) :
   (vzip_with f u v)@i = f (u@i) (v@i).
 Proof.
 induction i; inv_vec u; inv_vec v;
-simpl; intros; [done|apply IHi].
+cbn; intros; [done|apply IHi].
 Qed.
 
-End Polymorphic.
+Lemma vec_ext {X} (a b : vec X n) :
+  (∀ i, a@i = b@i) -> a = b.
+Proof.
+revert b; induction a; intros; inv_vec b; intros. done.
+assert(H0 := H 0%fin); cbn in H0; subst. f_equal; apply IHa; intros i.
+assert(HS := H (FS i)); cbn in HS; done.
+Qed.
 
-Section Vector.
+End Vector_utilities.
+
+Section Vector_addition.
 
 Variable X : Type.
 Variable n : nat.
@@ -81,7 +89,21 @@ all: repeat intros ?; rewrite ?vec_add_lookup, ?vec_zero_lookup.
 apply assoc; c. apply left_id; c. apply right_id; c. apply comm; c.
 Qed.
 
-End Vector.
+End Vector_addition.
+
+Section Matrix_transposition.
+
+Definition mat_transpose {X m n} (a : mat X m n) : mat X n m :=
+  mat_build (λ i j, a@j@i).
+
+Theorem mat_transpose_id {X m n} (a : mat X m n) :
+  mat_transpose (mat_transpose a) = a.
+Proof.
+apply vec_ext; intros i; apply vec_ext; intros j.
+unfold mat_transpose; rewrite ?lookup_mat_build; done.
+Qed.
+
+End Matrix_transposition.
 
 Section Matrix_multiplication.
 
@@ -95,14 +117,26 @@ Definition mat_dot {m n p} (a : mat X m n) (b : mat X n p) i j : X :=
 Definition mat_mul {m n p} (a : mat X m n) (b : mat X n p) : mat X m p :=
   mat_build (mat_dot a b).
 
-Section Associativity.
-
 Notation "a × b" := (mat_mul a b) (at level 50).
+
+Section Proper.
+
+Theorem mat_mul_proper {m n p} (a b : mat X m n) (c d : mat X n p) :
+  a ≡ b -> c ≡ d -> a × c ≡ b × d.
+Proof.
+Admitted.
+
+End Proper.
+
+Section Associativity.
 
 Variable m n p q : nat.
 Variable a : mat X m n.
 Variable b : mat X n p.
 Variable c : mat X p q.
+
+Implicit Types k : fin p.
+Implicit Types l : fin n.
 
 Local Ltac Σ_equiv_reduce :=
   apply Σ_equiv, Forall2_fmap, Forall_Forall2_diag, Forall_forall.
@@ -134,46 +168,45 @@ Qed.
 
 End Associativity.
 
+Section Absorption.
+
+Theorem mat_mul_left_absorb {m n p} (a : mat X n p) :
+  @mat_mul m n p 0 a ≡ 0.
+Proof.
+Admitted.
+
+Theorem mat_mul_right_absorb {m n p} (a : mat X m n) :
+  @mat_mul m n p a 0 ≡ 0.
+Proof.
+Admitted.
+
+End Absorption.
+
 End Matrix_multiplication.
 
-Section Square_matrix.
+Section Matrix_semiring.
 
 Variable X : Type.
 Variable n : nat.
 Notation mat := (mat X n n).
 
-Implicit Types a b c : mat.
-Implicit Types i j k : fin n.
-
-Context `{SR : Star_Semiring X}.
+Context `{SR : Semiring X}.
 
 Global Instance : One mat := mat_build (λ i j, if i =? j then 1 else 0).
 Global Instance : Mul mat := mat_mul.
 
-(* The Gauss-Jordan-Floyd-Warshall-Kleene algorithm. *)
-Definition mat_plus (m : mat) : mat :=
-  let step k m i j := m@i@j + m@i@k * m@k@k{*} * m@k@j in
-  foldr (λ k m, mat_build (step k m)) m (vseq n).
-
-Global Instance : Star mat :=
-  λ m, 1 + mat_plus m.
-
-Global Instance : @Assoc mat (≡) mul.
-Proof. intros a b c; apply mat_mul_assoc; done. Qed.
-
 Global Instance : @LeftId mat (≡) 1 mul. Admitted.
 Global Instance : @RightId mat (≡) 1 mul. Admitted.
-Global Instance : @LeftAbsorb mat (≡) 0 mul. Admitted.
-Global Instance : @RightAbsorb mat (≡) 0 mul. Admitted.
 Global Instance : @LeftDistr mat (≡) mul add. Admitted.
 Global Instance : @RightDistr mat (≡) mul add. Admitted.
 
-Global Instance : Star_Semiring mat.
-Proof. repeat split; try c. Admitted.
+Global Instance : Semiring mat.
+Proof.
+repeat split; try c.
+intros a b Hab c d Hcd; apply mat_mul_proper; done.
+intros a b c; apply mat_mul_assoc.
+intros a; apply mat_mul_left_absorb.
+intros a; apply mat_mul_right_absorb.
+Qed.
 
-Definition mat_transpose (m : mat) : mat :=
-  mat_build (λ i j, m@j@i).
-
-End Square_matrix.
-
-Arguments mat_transpose {_ _}.
+End Matrix_semiring.
