@@ -95,6 +95,8 @@ Definition mat_dot {m n p} (a : mat X m n) (b : mat X n p) i j : X :=
 Definition mat_mul {m n p} (a : mat X m n) (b : mat X n p) : mat X m p :=
   mat_build (mat_dot a b).
 
+Section Associativity.
+
 Notation "a × b" := (mat_mul a b) (at level 50).
 
 Variable m n p q : nat.
@@ -105,38 +107,32 @@ Variable c : mat X p q.
 Local Ltac Σ_equiv_reduce :=
   apply Σ_equiv, Forall2_fmap, Forall_Forall2_diag, Forall_forall.
 
-Lemma mat_mul_assoc_normalize_left i j :
+Lemma mat_mul_assoc_l i j :
   ((a×b)×c)@i@j ≡ Σ ((λ k, Σ ((λ l, a@i@l * b@l@k * c@k@j)<$>`[n]`))<$>`[p]`).
 Proof.
 unfold mat_mul; rewrite lookup_mat_build; unfold mat_dot at 1.
-erewrite list_fmap_ext with (g:=λ k, mat_dot a b i k * c@k@j).
-3: reflexivity. 2: intros k; rewrite lookup_mat_build; done.
-unfold mat_dot. etransitivity.
-Σ_equiv_reduce; intros k _; apply Σ_right_distr. erewrite list_fmap_ext.
-3: reflexivity. 2: intros k; rewrite <-list_fmap_compose; unfold compose; done.
-Σ_equiv_reduce; intros k _. Σ_equiv_reduce; intros l _. done.
+erewrite list_fmap_ext; [|intros k; rewrite lookup_mat_build; done|reflexivity].
+Σ_equiv_reduce; intros k _. etrans; [apply Σ_right_distr|].
+rewrite <-list_fmap_compose; done.
 Qed.
 
-Lemma mat_mul_assoc_normalize_right i j :
+Lemma mat_mul_assoc_r i j :
   (a×(b×c))@i@j ≡ Σ ((λ k, Σ ((λ l, a@i@l * b@l@k * c@k@j)<$>`[n]`))<$>`[p]`).
 Proof.
 unfold mat_mul; rewrite lookup_mat_build; unfold mat_dot at 1.
-erewrite list_fmap_ext with (g:=λ l, a@i@l * mat_dot b c l j).
-3: reflexivity. 2: intros k; rewrite lookup_mat_build; done.
-unfold mat_dot. etransitivity.
-Σ_equiv_reduce; intros l _; apply Σ_left_distr. erewrite list_fmap_ext.
-3: reflexivity. 2: intros l; rewrite <-list_fmap_compose; unfold compose; done.
-rewrite Σ_swap_index. Σ_equiv_reduce; intros k _. Σ_equiv_reduce; intros l _.
-apply assoc; c.
+erewrite list_fmap_ext; [|intros k; rewrite lookup_mat_build; done|reflexivity].
+etrans. Σ_equiv_reduce; intros l _. etrans. apply Σ_left_distr.
+rewrite <-list_fmap_compose; unfold compose. Σ_equiv_reduce; intros k _.
+2: apply Σ_swap_index. apply assoc; c.
 Qed.
 
 Theorem mat_mul_assoc :
   a × (b × c) ≡ (a × b) × c.
 Proof.
-intros i j;
-rewrite mat_mul_assoc_normalize_left;
-rewrite mat_mul_assoc_normalize_right; done.
+intros i j; rewrite mat_mul_assoc_l, mat_mul_assoc_r; done.
 Qed.
+
+End Associativity.
 
 End Matrix_multiplication.
 

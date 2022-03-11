@@ -58,7 +58,7 @@ Global Instance : Star re :=
 Global Instance : Equivalence (≡).
 Proof.
 split; repeat intros ?; auto.
-symmetry; auto. etransitivity; auto.
+symmetry; auto. etrans; auto.
 Qed.
 
 End Regular_Expressions.
