@@ -249,8 +249,13 @@ intros; split; intros Heq. apply Nat.eqb_eq, fin_to_nat_inj in Heq; done.
 rewrite Heq; apply Nat.eqb_refl. apply NoDup_vseq. apply elem_of_vseq.
 Qed.
 
-Global Instance :
-  @LeftId mat (≡) 1 mul.
+Lemma zip_with_fmap {U V W Y} (f : V -> W -> Y) (us : list U) g h :
+  zip_with f (g <$> us) (h <$> us) = (λ x, f (g x) (h x)) <$> us.
+Proof.
+induction us; cbn; congruence.
+Qed.
+
+Global Instance : @LeftId mat (≡) 1 mul.
 Proof.
 intros a i j; erewrite lookup_mul, equiv_Σ_fmap.
 apply Σ_eqb_indicator with (j:=i), fin_to_nat_lt.
@@ -259,8 +264,7 @@ apply Nat.eqb_eq, fin_to_nat_inj in E; subst k.
 apply left_id; c. apply left_absorb; c.
 Qed.
 
-Global Instance :
-  @RightId mat (≡) 1 mul.
+Global Instance : @RightId mat (≡) 1 mul.
 Proof.
 intros a i j; erewrite lookup_mul, equiv_Σ_fmap.
 apply Σ_eqb_indicator with (j:=j), fin_to_nat_lt.
@@ -269,10 +273,23 @@ apply Nat.eqb_eq, fin_to_nat_inj in E; subst k.
 apply right_id; c. apply right_absorb; c.
 Qed.
 
-Global Instance : @LeftDistr mat (≡) mul add. Admitted.
-Global Instance : @RightDistr mat (≡) mul add. Admitted.
+Global Instance : @LeftDistr mat (≡) mul add.
+Proof.
+intros a b c i j; rewrite ?lookup_add, ?lookup_mul, Σ_zip_with_add.
+rewrite zip_with_fmap; apply equiv_Σ_fmap; intros k _.
+rewrite ?lookup_add; apply left_distr.
+rewrite ?fmap_length; done.
+Qed.
 
-Global Instance : Semiring mat.
+Global Instance : @RightDistr mat (≡) mul add.
+Proof.
+intros a b c i j; rewrite ?lookup_add, ?lookup_mul, Σ_zip_with_add.
+rewrite zip_with_fmap; apply equiv_Σ_fmap; intros k _.
+rewrite ?lookup_add; apply right_distr.
+rewrite ?fmap_length; done.
+Qed.
+
+Global Instance mat_sr : Semiring mat.
 Proof.
 repeat split; try c.
 intros a b Hab c d Hcd; apply mat_mul_proper; done.
