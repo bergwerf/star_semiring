@@ -99,25 +99,40 @@ Context `{SR : Semiring X}.
 Implicit Types x y : X.
 Implicit Types xs : list X.
 
-Lemma Σ_left_distr xs y :
+Lemma left_distr_Σ xs y :
   y * Σ xs ≡ Σ ((λ x, y * x) <$> xs).
 Proof.
 induction xs; cbn. apply right_absorb; c.
 etrans. apply left_distr. rewrite IHxs; done.
 Qed.
 
-Lemma Σ_right_distr xs y :
+Lemma right_distr_Σ xs y :
   Σ xs * y ≡ Σ ((λ x, x * y) <$> xs).
 Proof.
 induction xs; cbn. apply left_absorb; c.
 etrans. apply right_distr. rewrite IHxs; done.
 Qed.
 
-Lemma Σ_equiv xs ys :
+Lemma equiv_Σ xs ys :
   Forall2 (≡) xs ys -> Σ xs ≡ Σ ys.
 Proof.
 revert ys; induction xs; intros ys Heq; inversion_clear Heq; cbn.
 done. rewrite H, IHxs; done.
+Qed.
+
+Lemma equiv_Σ_fmap {I} f g is :
+  (∀ i : I, i ∈ is -> f i ≡ g i) -> Σ (f <$> is) ≡ Σ (g <$> is).
+Proof.
+intros; apply equiv_Σ, Forall2_fmap, Forall_Forall2_diag, Forall_forall.
+intros i Hi; apply H, Hi.
+Qed.
+
+Lemma equiv_Σ_0 xs :
+  Forall (equiv 0) xs -> Σ xs ≡ 0.
+Proof.
+induction xs; cbn. done.
+intros; decompose_Forall_hyps.
+rewrite <-H, IHxs. apply left_id; c. done.
 Qed.
 
 Lemma Σ_zip_with_add xs ys :
@@ -134,11 +149,12 @@ Lemma Σ_swap_index {I J} (f : I -> J -> X) is js :
   Σ ((λ j, Σ ((λ i, f i j) <$> is)) <$> js).
 Proof.
 revert js; induction is; cbn; intros.
-- induction js; cbn. done.
-  rewrite <-IHjs, left_id; [done|c].
+- symmetry; apply equiv_Σ_0.
+  apply Forall_forall; intros x Hx.
+  apply elem_of_list_fmap in Hx as (_ & -> & _); done.
 - rewrite IHis, Σ_zip_with_add.
   2: rewrite ?fmap_length; done.
-  apply Σ_equiv; induction js; cbn. done.
+  apply equiv_Σ; induction js; cbn. done.
   apply Forall2_cons; done.
 Qed.
 
