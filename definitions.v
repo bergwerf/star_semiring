@@ -120,10 +120,26 @@ revert ys; induction xs; intros ys Heq; inversion_clear Heq; cbn.
 done. rewrite H, IHxs; done.
 Qed.
 
+Lemma Σ_zip_with_add xs ys :
+  length xs = length ys ->
+  Σ xs + Σ ys ≡ Σ (zip_with add xs ys).
+Proof.
+revert ys; induction xs; intros [|y ys]; cbn; intros; try done.
+apply left_id; c. rewrite (assoc _ _ y), <-(assoc _ a), (comm _ _ y).
+rewrite assoc, <-(assoc _ (a + y)), IHxs. done. apply Nat.succ_inj, H. c.
+Qed.
+
 Lemma Σ_swap_index {I J} (f : I -> J -> X) is js :
   Σ ((λ i, Σ ((λ j, f i j) <$> js)) <$> is) ≡
   Σ ((λ j, Σ ((λ i, f i j) <$> is)) <$> js).
 Proof.
-Admitted.
+revert js; induction is; cbn; intros.
+- induction js; cbn. done.
+  rewrite <-IHjs, left_id; [done|c].
+- rewrite IHis, Σ_zip_with_add.
+  2: rewrite ?fmap_length; done.
+  apply Σ_equiv; induction js; cbn. done.
+  apply Forall2_cons; done.
+Qed.
 
 End Lemmas.
