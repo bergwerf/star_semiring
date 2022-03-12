@@ -161,7 +161,7 @@ Qed.
 
 Section Proper.
 
-Theorem mat_mul_proper {m n p} (a b : mat X m n) (c d : mat X n p) :
+Theorem proper_mat_mul {m n p} (a b : mat X m n) (c d : mat X n p) :
   a ≡ b -> c ≡ d -> a × c ≡ b × d.
 Proof.
 intros Ha Hc i k; rewrite ?lookup_mat_mul.
@@ -180,7 +180,7 @@ Variable c : mat X p q.
 Implicit Types k : fin p.
 Implicit Types l : fin n.
 
-Lemma mat_mul_assoc_l i j :
+Lemma assoc_mat_mul_l i j :
   ((a×b)×c)@i@j ≡ Σ ((λ k, Σ ((λ l, a@i@l * b@l@k * c@k@j)<$>`[n]`))<$>`[p]`).
 Proof.
 rewrite lookup_mat_mul. erewrite list_fmap_ext;
@@ -189,7 +189,7 @@ apply equiv_Σ_fmap; intros k _. etrans; [apply right_distr_Σ|].
 rewrite <-list_fmap_compose; done.
 Qed.
 
-Lemma mat_mul_assoc_r i j :
+Lemma assoc_mat_mul_r i j :
   (a×(b×c))@i@j ≡ Σ ((λ k, Σ ((λ l, a@i@l * b@l@k * c@k@j)<$>`[n]`))<$>`[p]`).
 Proof.
 rewrite lookup_mat_mul. erewrite list_fmap_ext;
@@ -199,17 +199,17 @@ rewrite <-list_fmap_compose; unfold compose. apply equiv_Σ_fmap; intros k _.
 2: apply Σ_swap_index. apply assoc; c.
 Qed.
 
-Theorem mat_mul_assoc :
+Theorem assoc_mat_mul :
   a × (b × c) ≡ (a × b) × c.
 Proof.
-intros i j; rewrite mat_mul_assoc_l, mat_mul_assoc_r; done.
+intros i j; rewrite assoc_mat_mul_l, assoc_mat_mul_r; done.
 Qed.
 
 End Associativity.
 
 Section Absorption.
 
-Theorem mat_mul_left_absorb {m n p} (a : mat X n p) :
+Theorem left_absorb_mat_mul {m n p} (a : mat X n p) :
   @mat_mul m n p 0 a ≡ 0.
 Proof.
 intros i k; rewrite lookup_mat_mul, ?lookup_zero.
@@ -218,7 +218,7 @@ apply elem_of_list_fmap in Hx as (j & -> & _).
 rewrite ?lookup_zero; symmetry; apply left_absorb; c.
 Qed.
 
-Theorem mat_mul_right_absorb {m n p} (a : mat X m n) :
+Theorem right_absorb_mat_mul {m n p} (a : mat X m n) :
   @mat_mul m n p a 0 ≡ 0.
 Proof.
 intros i k; rewrite lookup_mat_mul, ?lookup_zero.
@@ -301,10 +301,10 @@ Qed.
 Global Instance : Semiring mat.
 Proof.
 repeat split; try c.
-intros a b Hab c d Hcd; apply mat_mul_proper; done.
-intros a b c; apply mat_mul_assoc.
-intros a; apply mat_mul_left_absorb.
-intros a; apply mat_mul_right_absorb.
+intros a b Hab c d Hcd; apply proper_mat_mul; done.
+intros a b c; apply assoc_mat_mul.
+intros a; apply left_absorb_mat_mul.
+intros a; apply right_absorb_mat_mul.
 Qed.
 
 End Matrix_semiring.
