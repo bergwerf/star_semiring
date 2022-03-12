@@ -70,12 +70,6 @@ Proof. firstorder. Qed.
 
 Section Simplifications.
 
-Lemma re_seq_0_l a : 0⋅a ≡ 0.
-Proof. firstorder. Qed.
-
-Lemma re_seq_0_r a : a⋅0 ≡ 0.
-Proof. firstorder. Qed.
-
 Lemma re_seq_1_l a :
   1⋅a ≡ a.
 Proof.
@@ -131,8 +125,8 @@ Theorem equiv_re_mul a b :
   a * b ≡ a⋅b.
 Proof.
 destruct a, b; cbn; try reflexivity; symmetry.
-all: try apply re_seq_0_l; try apply re_seq_0_r.
 all: try apply re_seq_1_l; try apply re_seq_1_r.
+all: firstorder.
 Qed.
 
 Theorem equiv_re_star a :
@@ -236,20 +230,12 @@ Local Ltac expand := rewrite ?equiv_re_add, ?equiv_re_mul, ?equiv_re_star.
 Global Instance : Kleene_Algebra re.
 Proof.
 split. split. split. c. split. 1,3: split. 1,4: split. 1,3: c.
-- intros a b c; expand; firstorder.
+1,3-4,7-11,14: intro; intros; expand; firstorder.
 - intros a b c; expand; apply assoc_re_seq. 
-- intros a; expand; firstorder.
-- intros a; expand; firstorder.
 - intros a; expand; apply re_seq_1_l.
 - intros a; expand; apply re_seq_1_r.
-- intros a b; expand; firstorder.
-- intros a b c; expand; firstorder.
-- intros a b c; expand; firstorder.
-- intros a; expand; apply re_seq_0_l.
-- intros a; expand; apply re_seq_0_r.
 - intros a; expand; apply left_expand_re_star.
 - intros a; expand; apply right_expand_re_star.
-- intros a; expand; firstorder.
 - intros a b; expand; apply left_intro_re_star.
 - intros a b; expand; apply right_intro_re_star.
 Qed.
