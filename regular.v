@@ -1,16 +1,21 @@
 From stars Require Import definitions.
 
-Section Regular_Expressions.
-
-Context {X : Type}.
-
-Inductive re :=
+Inductive re {X} :=
   | RE_None
   | RE_Empty
   | RE_Literal (x : X)
   | RE_Or (a b : re)
   | RE_Seq (a b : re)
   | RE_Star (a : re).
+
+Notation "a ∣ b" := (RE_Or a b) (at level 52, format "a ∣ b").
+Notation "a ⋅ b" := (RE_Seq a b) (at level 51, format "a ⋅ b").
+Notation "a ∗" := (RE_Star a) (left associativity, at level 50, format "a ∗").
+
+Section Regular_Expressions.
+
+Variable X : Type.
+Notation re := (@re X).
 
 Fixpoint re_in (w : list X) (a : re) :=
   match a with
@@ -22,11 +27,11 @@ Fixpoint re_in (w : list X) (a : re) :=
   | RE_Star b => w = [] \/ ∃ vs, w = concat vs /\ Forall (λ v, re_in v b) vs
   end.
 
+Global Instance : Zero re := RE_None.
+Global Instance : One re := RE_Empty.
 Global Instance : Empty re := RE_None.
 Global Instance : ElemOf (list X) re := re_in.
 Global Instance : Equiv re := λ a b, ∀ w, w ∈ a <-> w ∈ b.
-Global Instance : Zero re := RE_None.
-Global Instance : One re := RE_Empty.
 
 Global Instance : Add re :=
   λ a b, match a, b with
@@ -60,14 +65,14 @@ Global Instance : Star re :=
 Global Instance : @Equivalence re (≡).
 Proof. firstorder. Qed.
 
-Lemma re_seq_0_l a : RE_Seq 0 a ≡ 0.
+Lemma re_seq_0_l a : 0⋅a ≡ 0.
 Proof. firstorder. Qed.
 
-Lemma re_seq_0_r a : RE_Seq a 0 ≡ 0.
+Lemma re_seq_0_r a : a⋅0 ≡ 0.
 Proof. firstorder. Qed.
 
 Lemma re_seq_1_l a :
-  RE_Seq 1 a ≡ a.
+  1⋅a ≡ a.
 Proof.
 intros w; cbn; split.
 intros (u&v&->&->&Hv); done.
@@ -75,7 +80,7 @@ intros Hw; exists [], w; done.
 Qed.
 
 Lemma re_seq_1_r a :
-  RE_Seq a 1 ≡ a.
+  a⋅1 ≡ a.
 Proof.
 intros w; cbn; split.
 intros (u&v&->&Hu&->); simplify_list_eq; done.
@@ -83,21 +88,21 @@ intros Hw; exists w, []; simplify_list_eq; done.
 Qed.
 
 Lemma re_star_0 :
-  RE_Star 0 ≡ 1.
+  0∗ ≡ 1.
 Proof.
 intros w; cbn; firstorder; subst.
 destruct x; decompose_Forall; done.
 Qed.
 
 Lemma re_star_1 :
-  RE_Star 1 ≡ 1.
+  1∗ ≡ 1.
 Proof.
 intros w; cbn; firstorder; subst.
 apply concat_nil_Forall; done.
 Qed.
 
 Lemma re_star_star a :
-  RE_Star (RE_Star a) ≡ RE_Star a.
+  a∗∗ ≡ a∗.
 Proof.
 intros w; cbn; split; intros [H|(vs&->&H)]; auto.
 - induction vs as [|v vs]. left; done. decompose_Forall.
@@ -112,7 +117,7 @@ intros w; cbn; split; intros [H|(vs&->&H)]; auto.
 Qed.
 
 Lemma re_star_expand_left a :
-  RE_Star a ≡ RE_Or 1 (RE_Seq a (RE_Star a)).
+  a∗ ≡ 1∣a⋅a∗.
 Proof.
 intros w; cbn; split; intros H.
 + destruct H as [->|(vs&->&H)]; [left; done|].
@@ -124,7 +129,7 @@ intros w; cbn; split; intros H.
 Qed.
 
 Lemma re_star_expand_right a :
-  RE_Star a ≡ RE_Or 1 (RE_Seq (RE_Star a) a).
+  a∗ ≡ 1∣a∗⋅a.
 Proof.
 intros w; cbn; split; intros H.
 + destruct H as [->|(vs&->&H)]; [left; done|].
@@ -139,13 +144,13 @@ intros w; cbn; split; intros H.
 Qed.
 
 Lemma equiv_re_add a b :
-  a + b ≡ RE_Or a b.
+  a + b ≡ a∣b.
 Proof.
 destruct a, b; cbn; try firstorder.
 Qed.
 
 Lemma equiv_re_mul a b :
-  a * b ≡ RE_Seq a b.
+  a * b ≡ a⋅b.
 Proof.
 destruct a, b; cbn; try reflexivity; symmetry.
 all: try apply re_seq_0_l; try apply re_seq_0_r.
@@ -153,7 +158,7 @@ all: try apply re_seq_1_l; try apply re_seq_1_r.
 Qed.
 
 Lemma equiv_re_star a :
-  a{*} ≡ RE_Star a.
+  a{*} ≡ a∗.
 Proof.
 destruct a; cbn; try reflexivity; symmetry.
 apply re_star_0. apply re_star_1. apply re_star_star.
@@ -194,13 +199,8 @@ split. split. split. c. split. 1,3: split. 1,4: split. 1,3: c.
 - intros a; expand; apply re_star_expand_left.
 - intros a; expand; apply re_star_expand_right.
 - intros a; expand; firstorder.
-- admit.
-- admit.
+- intros a b; expand. admit.
+- intros a b; expand. admit.
 Admitted.
 
 End Regular_Expressions.
-
-Notation "'ε'" := (RE_Empty).
-Notation "a ∣ b" := (RE_Or a b) (at level 52, format "a ∣ b").
-Notation "a ⋅ b" := (RE_Seq a b) (at level 51, format "a ⋅ b").
-Notation "a ∗" := (RE_Star a) (at level 50, format "a ∗").
