@@ -1,5 +1,7 @@
 From stars Require Import definitions.
 
+Notation vhd := Vector.hd.
+Notation vtl := Vector.tl.
 Notation mat X m n := (vec (vec X n) m).
 Notation "v @ i" := (vector_lookup_total _ _ i v)
   (left associativity, at level 25, format "v @ i").
@@ -114,6 +116,13 @@ repeat split.
 intros a b Hab u v Huv i; rewrite ?lookup_add, (Hab i), (Huv i); done.
 all: repeat intros ?; rewrite ?lookup_add, ?lookup_zero.
 apply assoc; c. apply left_id; c. apply right_id; c. apply comm; c.
+Qed.
+
+Context `{IdemP X (≡) add}.
+
+Global Instance : @IdemP vec (≡) add.
+Proof.
+intros v i; rewrite lookup_add; done.
 Qed.
 
 End Vector_addition.
@@ -299,3 +308,16 @@ intros a; apply mat_mul_right_absorb.
 Qed.
 
 End Matrix_semiring.
+
+Section Matrix_blocks.
+
+Context {X : Type}.
+
+Notation mat m n := (mat X m n).
+
+Definition mat_blocks {k l m n}
+  (a : mat k m) (b : mat k n)
+  (c : mat l m) (d : mat l n) : mat (k + l) (m + n) :=
+  vzip_with vapp a b +++ vzip_with vapp c d.
+
+End Matrix_blocks.
