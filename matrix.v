@@ -253,7 +253,7 @@ Proof. apply lookup_mat_mul. Qed.
 Lemma Σ_eqb_indicator (x : X) j :
   j < n -> Σ ((λ i, if i =? j then x else 0) <$> `[n]`) ≡ x.
 Proof.
-intros; eapply Σ_indicator with (f:=λ _, x)(j0:=j).
+intros; eapply Σ_indicator with (f:=λ _, x)(j:=j).
 intros; split; intros Heq. apply Nat.eqb_eq, fin_to_nat_inj in Heq; done.
 rewrite Heq; apply Nat.eqb_refl. apply NoDup_vseq. apply elem_of_vseq.
 Qed.
@@ -261,7 +261,8 @@ Qed.
 Lemma zip_with_fmap {U V W Y} (f : V -> W -> Y) (us : list U) g h :
   zip_with f (g <$> us) (h <$> us) = (λ x, f (g x) (h x)) <$> us.
 Proof.
-induction us; cbn; congruence.
+induction us; cbn. done.
+f_equal; apply IHus.
 Qed.
 
 Global Instance : @LeftId mat (≡) 1 mul.
