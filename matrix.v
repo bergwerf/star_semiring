@@ -289,7 +289,7 @@ rewrite ?lookup_add; apply right_distr.
 rewrite ?fmap_length; done.
 Qed.
 
-Global Instance mat_sr : Semiring mat.
+Global Instance : Semiring mat.
 Proof.
 repeat split; try c.
 intros a b Hab c d Hcd; apply mat_mul_proper; done.
