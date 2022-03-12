@@ -8,9 +8,12 @@ Inductive re {X} :=
   | RE_Seq (a b : re)
   | RE_Star (a : re).
 
-Notation "a ∣ b" := (RE_Or a b) (at level 52, format "a ∣ b").
-Notation "a ⋅ b" := (RE_Seq a b) (at level 51, format "a ⋅ b").
-Notation "a ∗" := (RE_Star a) (left associativity, at level 50, format "a ∗").
+Notation "a ∣ b" := (RE_Or a b)
+  (left associativity, at level 53, format "a ∣ b").
+Notation "a ⋅ b" := (RE_Seq a b)
+  (left associativity, at level 52, format "a ⋅ b").
+Notation "a ∗" := (RE_Star a)
+  (left associativity, at level 51, format "a ∗").
 
 Section Regular_Expressions.
 
@@ -65,6 +68,8 @@ Global Instance : Star re :=
 Global Instance : @Equivalence re (≡).
 Proof. firstorder. Qed.
 
+Section Simplifications.
+
 Lemma re_seq_0_l a : 0⋅a ≡ 0.
 Proof. firstorder. Qed.
 
@@ -116,7 +121,44 @@ intros w; cbn; split; intros [H|(vs&->&H)]; auto.
   cbn; simplify_list_eq; done. decompose_Forall; done.
 Qed.
 
-Lemma re_star_expand_left a :
+Theorem equiv_re_add a b :
+  a + b ≡ a∣b.
+Proof.
+destruct a, b; cbn; try firstorder.
+Qed.
+
+Theorem equiv_re_mul a b :
+  a * b ≡ a⋅b.
+Proof.
+destruct a, b; cbn; try reflexivity; symmetry.
+all: try apply re_seq_0_l; try apply re_seq_0_r.
+all: try apply re_seq_1_l; try apply re_seq_1_r.
+Qed.
+
+Theorem equiv_re_star a :
+  a{*} ≡ a∗.
+Proof.
+destruct a; cbn; try reflexivity; symmetry.
+apply re_star_0. apply re_star_1. apply re_star_star.
+Qed.
+
+End Simplifications.
+
+Section Properties.
+
+Lemma assoc_re_seq a b c :
+  a⋅(b⋅c) ≡ a⋅b⋅c.
+Proof.
+intros w; cbn; split; intros (u&v&->&H).
++ destruct H as (Ha&v1&v2&->&Hv1&Hv2).
+  exists (u ++ v1), v2; repeat split; try done.
+  apply app_assoc. exists u, v1; done.
++ destruct H as ((u1&u2&->&Hu1&Hu2)&Hv).
+  exists u1, (u2 ++ v); repeat split; try done.
+  symmetry; apply app_assoc. exists u2, v; done.
+Qed.
+
+Lemma left_expand_re_star a :
   a∗ ≡ 1∣a⋅a∗.
 Proof.
 intros w; cbn; split; intros H.
@@ -128,7 +170,7 @@ intros w; cbn; split; intros H.
   cbn; repeat split; decompose_Forall; done.
 Qed.
 
-Lemma re_star_expand_right a :
+Lemma right_expand_re_star a :
   a∗ ≡ 1∣a∗⋅a.
 Proof.
 intros w; cbn; split; intros H.
@@ -143,26 +185,28 @@ intros w; cbn; split; intros H.
   rewrite concat_app; simplify_list_eq; done.
 Qed.
 
-Lemma equiv_re_add a b :
-  a + b ≡ a∣b.
+Lemma left_intro_re_star a b :
+  a⋅b∣b ≡ b → a∗⋅b∣b ≡ b.
 Proof.
-destruct a, b; cbn; try firstorder.
+intros H w; cbn; split; [|auto].
+intros [(u&v&->&[->|(us&->&Hus)]&Hv)|Hw]; simplify_list_eq; try done.
+induction us as [|u us]; simplify_list_eq. done. decompose_Forall.
+apply H; cbn; left; eexists; eexists; auto.
 Qed.
 
-Lemma equiv_re_mul a b :
-  a * b ≡ a⋅b.
+Lemma right_intro_re_star a b :
+  b⋅a∣b ≡ b → b⋅a∗∣b ≡ b.
 Proof.
-destruct a, b; cbn; try reflexivity; symmetry.
-all: try apply re_seq_0_l; try apply re_seq_0_r.
-all: try apply re_seq_1_l; try apply re_seq_1_r.
+intros H w; cbn; split; [|auto].
+intros [(u&v&->&Hu&[->|(vs&->&Hvs)])|Hw]; simplify_list_eq; try done.
+induction vs as [|v vs] using rev_ind; simplify_list_eq. done.
+rewrite concat_app; simplify_list_eq; rewrite app_assoc.
+decompose_Forall; apply H; cbn; left; eexists; eexists; auto.
 Qed.
 
-Lemma equiv_re_star a :
-  a{*} ≡ a∗.
-Proof.
-destruct a; cbn; try reflexivity; symmetry.
-apply re_star_0. apply re_star_1. apply re_star_star.
-Qed.
+End Properties.
+
+Section Rewriting.
 
 Global Instance : Proper ((≡) ==> (≡) ==> (≡)) RE_Or.
 Proof. firstorder. Qed.
@@ -185,19 +229,15 @@ Proof. intros a b Hab c d Hcd; rewrite ?equiv_re_mul, Hab, Hcd; done. Qed.
 Global Instance : Proper ((≡) ==> (≡)) (@star re _).
 Proof. intros a b Hab; rewrite ?equiv_re_star, Hab; done. Qed.
 
+End Rewriting.
+
 Local Ltac expand := rewrite ?equiv_re_add, ?equiv_re_mul, ?equiv_re_star.
 
 Global Instance : Kleene_Algebra re.
 Proof.
 split. split. split. c. split. 1,3: split. 1,4: split. 1,3: c.
 - intros a b c; expand; firstorder.
-- intros a b c; expand; intros w; cbn; split; intros (u&v&->&H).
-  + destruct H as (Ha&v1&v2&->&Hv1&Hv2).
-    exists (u ++ v1), v2; repeat split; try done.
-    apply app_assoc. exists u, v1; done.
-  + destruct H as ((u1&u2&->&Hu1&Hu2)&Hv).
-    exists u1, (u2 ++ v); repeat split; try done.
-    symmetry; apply app_assoc. exists u2, v; done.
+- intros a b c; expand; apply assoc_re_seq. 
 - intros a; expand; firstorder.
 - intros a; expand; firstorder.
 - intros a; expand; apply re_seq_1_l.
@@ -207,18 +247,11 @@ split. split. split. c. split. 1,3: split. 1,4: split. 1,3: c.
 - intros a b c; expand; firstorder.
 - intros a; expand; apply re_seq_0_l.
 - intros a; expand; apply re_seq_0_r.
-- intros a; expand; apply re_star_expand_left.
-- intros a; expand; apply re_star_expand_right.
+- intros a; expand; apply left_expand_re_star.
+- intros a; expand; apply right_expand_re_star.
 - intros a; expand; firstorder.
-- intros a b; expand; intros H w; cbn; split; [|auto].
-  intros [(u&v&->&[->|(us&->&Hus)]&Hv)|Hw]; simplify_list_eq; try done.
-  induction us as [|u us]; simplify_list_eq. done. decompose_Forall.
-  apply H; cbn; left; eexists; eexists; auto.
-- intros a b; expand; intros H w; cbn; split; [|auto].
-  intros [(u&v&->&Hu&[->|(vs&->&Hvs)])|Hw]; simplify_list_eq; try done.
-  induction vs as [|v vs] using rev_ind; simplify_list_eq. done.
-  rewrite concat_app; simplify_list_eq; rewrite app_assoc.
-  decompose_Forall; apply H; cbn; left; eexists; eexists; auto.
+- intros a b; expand; apply left_intro_re_star.
+- intros a b; expand; apply right_intro_re_star.
 Qed.
 
 End Regular_Expressions.

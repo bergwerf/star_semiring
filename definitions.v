@@ -12,9 +12,9 @@ Definition Π {X} `{Mul X, One X} : list X -> X := foldr mul one.
 
 Notation "0" := (zero). 
 Notation "1" := (one).
-Notation "x + y" := (add x y).
-Notation "x * y" := (mul x y).
-Notation "x '{*}'" := (star x) (at level 30, format "x '{*}'").
+Notation "x + y" := (add x y) (left associativity,at level 50).
+Notation "x * y" := (mul x y) (left associativity,at level 40).
+Notation "x '{*}'":= (star x) (left associativity,at level 31,format "x '{*}'").
 Notation "a ⪯ b" := (a + b ≡ b) (at level 70).
 
 Class LeftDistr {X} (R : relation X) (f g : X -> X -> X) :=
