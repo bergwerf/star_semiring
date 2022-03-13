@@ -3,6 +3,7 @@
 definitions.v
 arithmetic.v
 regular.v
+vector.v
 matrix.v
 asterate.v
 examples.v
