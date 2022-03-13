@@ -73,8 +73,8 @@ Lemma vec_ext {X} (a b : vec X n) :
   (∀ i, a@i = b@i) -> a = b.
 Proof.
 revert b; induction a; intros; inv_vec b; intros. done.
-assert(H0 := H 0%fin); cbn in H0; subst. f_equal; apply IHa; intros i.
-assert(HS := H (FS i)); cbn in HS; done.
+assert (H0 := H 0%fin); cbn in H0; subst. f_equal; apply IHa; intros i.
+assert (HS := H (FS i)); cbn in HS; done.
 Qed.
 
 End Vector_lookups.
@@ -322,26 +322,29 @@ Definition blocks {k l m n}
   (c : mat l m) (d : mat l n) : mat (k + l) (m + n) :=
   vzip_with vapp a b +++ vzip_with vapp c d.
 
-Definition fin_split {m n} : fin (m + n) -> fin m + fin n.
-Admitted.
+Definition fin_sum {m n} : fin (m + n) -> fin m + fin n :=
+  fin_plus_inv _ inl inr.
 
-Lemma fin_split_spec {m n} (i : fin (m + n)) :
-  match fin_split i with
+Lemma fin_sum_spec {m n} (i : fin (m + n)) :
+  match fin_sum i with
   | inl j => i < m /\ @eq nat j i
   | inr j => i ≥ m /\ Nat.add m j = i
   end.
+Proof.
 Admitted.
 
 Lemma lookup_blocks {k l m n} a b c d
   (i : fin (k + l)) (j : fin (m + n)) (Hi : i < k) (Hj : j < m) :
   (blocks a b c d)@i@j =
-  match fin_split i, fin_split j with
+  match fin_sum i, fin_sum j with
   | inl i', inl j' => a@i'@j'
   | inl i', inr j' => b@i'@j'
   | inr i', inl j' => c@i'@j'
   | inr i', inr j' => d@i'@j'
   end.
 Proof.
+assert (Hi' := fin_sum_spec i); assert (Hj' := fin_sum_spec j);
+destruct (fin_sum i) as [i'|i'], (fin_sum j) as [j'|j'].
 Admitted.
 
 Theorem add_blocks {k l m n}
