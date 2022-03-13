@@ -151,7 +151,7 @@ Definition mat_dot {m n p} (a : mat X m n) (b : mat X n p) i j : X :=
 Definition mat_mul {m n p} (a : mat X m n) (b : mat X n p) : mat X m p :=
   mat_build (mat_dot a b).
 
-Notation "a × b" := (mat_mul a b) (at level 50).
+Notation "a × b" := (mat_mul a b) (at level 40).
 
 Lemma lookup_mat_mul {m n p} (a : mat X m n) (b : mat X n p) i j :
   (a × b)@i@j = Σ ((λ k, a@i@k * b@k@j) <$> `[n]`).
@@ -230,6 +230,8 @@ Qed.
 End Absorption.
 
 End Matrix_multiplication.
+
+Notation "a × b" := (mat_mul a b) (at level 40).
 
 Section Matrix_semiring.
 
@@ -312,13 +314,53 @@ End Matrix_semiring.
 
 Section Matrix_blocks.
 
-Context {X : Type}.
-
+Context `{SR : Semiring X}.
 Notation mat m n := (mat X m n).
 
-Definition mat_blocks {k l m n}
+Definition blocks {k l m n}
   (a : mat k m) (b : mat k n)
   (c : mat l m) (d : mat l n) : mat (k + l) (m + n) :=
   vzip_with vapp a b +++ vzip_with vapp c d.
+
+Definition fin_split {m n} : fin (m + n) -> fin m + fin n.
+Admitted.
+
+Lemma fin_split_spec {m n} (i : fin (m + n)) :
+  match fin_split i with
+  | inl j => i < m /\ @eq nat j i
+  | inr j => i ≥ m /\ Nat.add m j = i
+  end.
+Admitted.
+
+Lemma lookup_blocks {k l m n} a b c d
+  (i : fin (k + l)) (j : fin (m + n)) (Hi : i < k) (Hj : j < m) :
+  (blocks a b c d)@i@j =
+  match fin_split i, fin_split j with
+  | inl i', inl j' => a@i'@j'
+  | inl i', inr j' => b@i'@j'
+  | inr i', inl j' => c@i'@j'
+  | inr i', inr j' => d@i'@j'
+  end.
+Proof.
+Admitted.
+
+Theorem add_blocks {k l m n}
+  (a a' : mat k m) (b b' : mat k n)
+  (c c' : mat l m) (d d' : mat l n) :
+  blocks a b c d + blocks a' b' c' d' ≡
+  blocks (a + a') (b + b') (c + c') (d + d').
+Proof.
+Admitted.
+
+Theorem mul_blocks {k l m n}
+  (a : mat k m) (b : mat k n)
+  (c : mat l m) (d : mat l n)
+  (e : mat m k) (f : mat m l)
+  (g : mat n k) (h : mat n l) :
+  blocks a b c d × blocks e f g h ≡ blocks
+  (a × e + b × g) (a × f + b × h)
+  (c × e + d × g) (c × f + d × h).
+Proof.
+Admitted.
 
 End Matrix_blocks.

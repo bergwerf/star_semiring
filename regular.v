@@ -180,7 +180,7 @@ intros w; cbn; split; intros H.
 Qed.
 
 Lemma left_intro_re_star a b :
-  a⋅b∣b ≡ b → a∗⋅b∣b ≡ b.
+  a⋅b∣b ≡ b -> a∗⋅b∣b ≡ b.
 Proof.
 intros H w; cbn; split; [|auto].
 intros [(u&v&->&[->|(us&->&Hus)]&Hv)|Hw]; simplify_list_eq; try done.
@@ -189,7 +189,7 @@ apply H; cbn; left; eexists; eexists; auto.
 Qed.
 
 Lemma right_intro_re_star a b :
-  b⋅a∣b ≡ b → b⋅a∗∣b ≡ b.
+  b⋅a∣b ≡ b -> b⋅a∗∣b ≡ b.
 Proof.
 intros H w; cbn; split; [|auto].
 intros [(u&v&->&Hu&[->|(vs&->&Hvs)])|Hw]; simplify_list_eq; try done.

@@ -5,7 +5,6 @@ Section Matrix_asterate.
 Variable X : Type.
 Notation sq n := (mat X n n).
 Notation mat m n := (mat X m n).
-Notation "a × b" := (mat_mul a b) (at level 30).
 
 Context `{SR : Star_Semiring X}.
 
@@ -21,7 +20,7 @@ Definition mat_star_ind_step {m n}
   let f'     := star_m f     in
   let f'bd'  := f' × bd'     in
   let d'cf'  := d'c × f'     in
-  mat_blocks f' f'bd' d'cf' (d' + d'cf' × bd').
+  blocks f' f'bd' d'cf' (d' + d'cf' × bd').
 
 Fixpoint mat_star_ind {n} : sq n -> sq n :=
   match n with
