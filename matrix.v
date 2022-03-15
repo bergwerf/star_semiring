@@ -1,6 +1,7 @@
 From stars Require Import definitions vector.
 
 Notation mat X m n := (vec (vec X n) m).
+Notation "`[ n ]`" := (vec_to_list (vseq n)) (format "`[ n ]`").
 
 Section Matrix_utilities.
 
@@ -182,7 +183,7 @@ Qed.
 
 Global Instance : @LeftDistr mat (≡) mul add.
 Proof.
-intros a b c i j; rewrite ?vlookup_add, ?vlookup_mul, Σ_zip_with_add.
+intros a b c i j; rewrite ?vlookup_add, ?vlookup_mul, equiv_Σ_zip_with_add.
 rewrite zip_with_fmap; apply equiv_Σ_fmap; intros k _.
 rewrite ?vlookup_add; apply left_distr.
 rewrite ?fmap_length; done.
@@ -190,7 +191,7 @@ Qed.
 
 Global Instance : @RightDistr mat (≡) mul add.
 Proof.
-intros a b c i j; rewrite ?vlookup_add, ?vlookup_mul, Σ_zip_with_add.
+intros a b c i j; rewrite ?vlookup_add, ?vlookup_mul, equiv_Σ_zip_with_add.
 rewrite zip_with_fmap; apply equiv_Σ_fmap; intros k _.
 rewrite ?vlookup_add; apply right_distr.
 rewrite ?fmap_length; done.
@@ -230,7 +231,7 @@ unfold blocks; rewrite ?vlookup_unfold, vlookup_vapp; destruct (fin_sum i);
 rewrite vlookup_zip_with, vlookup_vapp; destruct (fin_sum j); done.
 Qed.
 
-Theorem add_blocks {m n p q}
+Theorem equiv_add_blocks {m n p q}
   (a a' : mat m p) (b b' : mat m q)
   (c c' : mat n p) (d d' : mat n q) :
   blocks a b c d + blocks a' b' c' d' ≡
@@ -240,14 +241,14 @@ intros i j; rewrite ?vlookup_add, ?vlookup_blocks.
 destruct (fin_sum i), (fin_sum j); rewrite ?vlookup_add; done.
 Qed.
 
-Lemma Σ_fin_sum {m n p q} (a : mat m (p + q)) (b : mat (p + q) n) i j :
-  Σ ((λ k : fin (p + q), a@i@k * b@k@j) <$> `[p + q]`) ≡
-  Σ ((λ k : fin p, let l := (Fin.L q k) in a@i@l * b@l@j) <$> `[p]`) +
-  Σ ((λ k : fin q, let l := (Fin.R p k) in a@i@l * b@l@j) <$> `[q]`).
+Lemma fmap_vseq_add {m n} (f : fin (m + n) -> X) :
+  f <$> `[m + n]` = (f ∘ Fin.L n <$> `[m]`) ++ (f ∘ Fin.R m <$> `[n]`).
 Proof.
-Admitted.
+rewrite <-?vec_to_list_map, <-vec_to_list_app.
+rewrite vmap_vseq_add; done.
+Qed.
 
-Theorem mul_blocks {m n p q}
+Theorem equiv_mul_blocks {m n p q}
   (a : mat m p) (b : mat m q)
   (c : mat n p) (d : mat n q)
   (e : mat p m) (f : mat p n)
@@ -256,7 +257,8 @@ Theorem mul_blocks {m n p q}
   (a × e + b × g) (a × f + b × h)
   (c × e + d × g) (c × f + d × h).
 Proof.
-intros i j; rewrite vlookup_blocks, vlookup_mat_mul, Σ_fin_sum.
+intros i j; rewrite vlookup_blocks, vlookup_mat_mul.
+rewrite fmap_vseq_add, equiv_Σ_append; unfold compose.
 destruct (fin_sum i) as [i'|i'] eqn:Hi, (fin_sum j) as [j'|j'] eqn:Hj.
 all: rewrite ?vlookup_add, ?vlookup_mat_mul; split_proper.
 all: apply equiv_Σ_fmap; intros k _; cbn; rewrite ?vlookup_blocks, Hi, Hj.

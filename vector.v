@@ -12,6 +12,14 @@ Section Vector_indices.
 Fixpoint vseq (n : nat) : vec (fin n) n :=
   match n with O => [# ] | S m => Fin.F1 ::: vmap FS (vseq m) end.
 
+Lemma elem_of_vseq n (i : fin n) :
+  i ∈ vec_to_list (vseq n).
+Proof.
+induction n; cbn; inv_fin i; intros.
+apply elem_of_list_here. apply elem_of_list_further.
+rewrite vec_to_list_map; apply elem_of_list_fmap_1, IHn.
+Qed.
+
 Lemma NoDup_vseq n :
   NoDup (vseq n).
 Proof.
@@ -21,12 +29,12 @@ rewrite vec_to_list_map; apply NoDup_cons; split.
 - apply NoDup_fmap. intros i j H; apply Fin.FS_inj, H. apply IHn.
 Qed.
 
-Lemma elem_of_vseq n (i : fin n) :
-  i ∈ vec_to_list (vseq n).
+Lemma vmap_vseq_add {X m n} (f : fin (m + n) -> X) :
+  vmap f (vseq (m + n)) =
+  vmap (f ∘ Fin.L n) (vseq m) +++ vmap (f ∘ Fin.R m) (vseq n).
 Proof.
-induction n; cbn; inv_fin i; intros.
-apply elem_of_list_here. apply elem_of_list_further.
-rewrite vec_to_list_map; apply elem_of_list_fmap_1, IHn.
+unfold compose; induction m; cbn. done. f_equal.
+rewrite Vector.map_map, IHm, Vector.map_map; done.
 Qed.
 
 End Vector_indices.
@@ -124,8 +132,6 @@ End Vector_append.
 End Vector_lookups.
 
 End Vector_utilities.
-
-Notation "`[ n ]`" := (vec_to_list (vseq n)) (format "`[ n ]`").
 
 Section Vector_addition.
 

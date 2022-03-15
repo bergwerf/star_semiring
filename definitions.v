@@ -120,13 +120,6 @@ revert ys; induction xs; intros ys Heq; inversion_clear Heq; cbn.
 done. rewrite H, IHxs; done.
 Qed.
 
-Lemma equiv_Σ_fmap {I} f g is :
-  (∀ i : I, i ∈ is -> f i ≡ g i) -> Σ (f <$> is) ≡ Σ (g <$> is).
-Proof.
-intros; apply equiv_Σ, Forall2_fmap, Forall_Forall2_diag, Forall_forall.
-intros i Hi; apply H, Hi.
-Qed.
-
 Lemma equiv_Σ_0 xs :
   Forall (equiv 0) xs -> Σ xs ≡ 0.
 Proof.
@@ -135,7 +128,21 @@ intros; decompose_Forall_hyps.
 rewrite <-H, IHxs. apply left_id; c. done.
 Qed.
 
-Lemma Σ_zip_with_add xs ys :
+Lemma equiv_Σ_append xs ys :
+  Σ (xs ++ ys) ≡ Σ xs + Σ ys.
+Proof.
+induction xs; cbn. symmetry; apply left_id; c.
+rewrite IHxs; apply assoc; c.
+Qed.
+
+Lemma equiv_Σ_fmap {I} f g is :
+  (∀ i : I, i ∈ is -> f i ≡ g i) -> Σ (f <$> is) ≡ Σ (g <$> is).
+Proof.
+intros; apply equiv_Σ, Forall2_fmap, Forall_Forall2_diag, Forall_forall.
+intros i Hi; apply H, Hi.
+Qed.
+
+Lemma equiv_Σ_zip_with_add xs ys :
   length xs = length ys ->
   Σ xs + Σ ys ≡ Σ (zip_with add xs ys).
 Proof.
@@ -152,7 +159,7 @@ revert js; induction is; cbn; intros.
 - symmetry; apply equiv_Σ_0.
   apply Forall_forall; intros x Hx.
   apply elem_of_list_fmap in Hx as (_ & -> & _); done.
-- rewrite IHis, Σ_zip_with_add.
+- rewrite IHis, equiv_Σ_zip_with_add.
   2: rewrite ?fmap_length; done.
   apply equiv_Σ; induction js; cbn. done.
   apply Forall2_cons; done.
