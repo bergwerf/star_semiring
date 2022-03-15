@@ -231,6 +231,14 @@ unfold blocks; rewrite ?vlookup_unfold, vlookup_vapp; destruct (fin_sum i);
 rewrite vlookup_zip_with, vlookup_vapp; destruct (fin_sum j); done.
 Qed.
 
+Global Instance proper_blocks m n p q :
+  Proper ((≡) ==> (≡) ==> (≡) ==> (≡) ==> (≡)) (@blocks m n p q).
+Proof.
+intros a a' Ha b b' Hb c c' Hc d d' Hd i j;
+rewrite ?vlookup_blocks; destruct (fin_sum i), (fin_sum j).
+apply Ha. apply Hb. apply Hc. apply Hd.
+Qed.
+
 Theorem equiv_add_blocks {m n p q}
   (a a' : mat m p) (b b' : mat m q)
   (c c' : mat n p) (d d' : mat n q) :
