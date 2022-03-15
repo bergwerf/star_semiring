@@ -69,17 +69,16 @@ Section Vector_append.
 Implicit Types k : fin (m + n).
 
 Lemma fin_sum_sig k :
-  { i : fin m | k < m /\ @eq nat k i } +
-  { j : fin n | k ≥ m /\ (m + j)%nat = k }.
+  { i : fin m | @eq nat k i } +
+  { j : fin n | (m + j)%nat = k }.
 Proof.
 destruct (lt_dec k m) as [H|H]; [left|right].
-- exists (nat_to_fin H); split.
-  done. symmetry; apply fin_to_nat_to_fin.
+- exists (nat_to_fin H); symmetry; apply fin_to_nat_to_fin.
 - apply Nat.nlt_ge in H.
   assert (Hk := fin_to_nat_lt k).
   assert (Hi : k - m < n) by lia.
-  exists (nat_to_fin Hi); split.
-  done. rewrite fin_to_nat_to_fin; lia.
+  exists (nat_to_fin Hi).
+  rewrite fin_to_nat_to_fin; lia.
 Qed.
 
 Definition fin_sum k :=
@@ -89,7 +88,7 @@ Definition fin_sum k :=
   end.
 
 Local Ltac destruct_fin_sum := unfold fin_sum;
-  destruct (fin_sum_sig _) as [(i'&Hlt&Heq)|(j'&Hge&Heq)].
+  destruct (fin_sum_sig _) as [[i' Heq]|[j' Heq]].
 
 Lemma fin_to_nat_L i : fin_to_nat (Fin.L n i) = fin_to_nat i.
 Proof. induction i; cbn; congruence. Qed.
@@ -100,18 +99,17 @@ Proof. induction m; cbn; congruence. Qed.
 Lemma fin_sum_L i :
   fin_sum (Fin.L _ i) = inl i.
 Proof.
-destruct_fin_sum.
-- rewrite fin_to_nat_L in Heq; apply fin_to_nat_inj in Heq; subst; done.
-- rewrite fin_to_nat_L in Hge; assert(Hi := fin_to_nat_lt i); lia.
+destruct_fin_sum; rewrite fin_to_nat_L in Heq.
+- apply fin_to_nat_inj in Heq; subst; done.
+- assert (Hi := fin_to_nat_lt i); lia.
 Qed.
 
 Lemma fin_sum_R j :
   fin_sum (Fin.R _ j) = inr j.
 Proof.
-destruct_fin_sum.
-- rewrite fin_to_nat_R in Hlt; lia.
-- rewrite fin_to_nat_R in Heq; apply Nat.add_cancel_l in Heq.
-  apply fin_to_nat_inj in Heq; subst; done.
+destruct_fin_sum; rewrite fin_to_nat_R in Heq.
+- assert (Hi := fin_to_nat_lt i'); lia.
+- apply Nat.add_cancel_l, fin_to_nat_inj in Heq; subst; done.
 Qed.
 
 Lemma vlookup_vapp {X} (u : vec X m) (v : vec X n) k :
@@ -121,8 +119,8 @@ Lemma vlookup_vapp {X} (u : vec X m) (v : vec X n) k :
   end.
 Proof.
 destruct_fin_sum.
-- induction u; cbn in *. lia. inv_fin k; inv_fin i'; cbn; intros; try done.
-  apply IHu. apply lt_S_n, Hlt. apply eq_add_S, Heq.
+- induction u; cbn in *. assert (Hi := fin_to_nat_lt i'); lia.
+  inv_fin k; inv_fin i'; cbn; intros; try done. apply IHu. apply eq_add_S, Heq.
 - induction u; cbn in *. apply fin_to_nat_inj in Heq; subst; done.
   inv_fin k; cbn; intros. done. apply IHu; lia.
 Qed.

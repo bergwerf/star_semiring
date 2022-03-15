@@ -87,10 +87,28 @@ Class Kleene_Algebra
   right_intro_star a x          : x * a ⪯ x -> x * a{*} ⪯ x;
 }.
 
+Ltac convert_nat_bool_once :=
+  match goal with
+  | [H : _ =? _ = true |- _]   => apply Nat.eqb_eq in H
+  | [H : _ =? _ = false |- _]  => apply Nat.eqb_neq in H
+  | [H : _ <=? _ = true |- _]  => apply Nat.leb_le in H
+  | [H : _ <=? _ = false |- _] => apply Nat.leb_gt in H
+  | [H : _ <? _ = true |- _]   => apply Nat.ltb_lt in H
+  | [H : _ <? _ = false |- _]  => apply Nat.ltb_ge in H
+  | |- (_ =? _ = true)   => apply Nat.eqb_eq
+  | |- (_ =? _ = false)  => apply Nat.eqb_neq
+  | |- (_ <=? _ = true)  => apply Nat.leb_le
+  | |- (_ <=? _ = false) => apply Nat.leb_gt
+  | |- (_ <? _ = true)   => apply Nat.ltb_lt
+  | |- (_ <? _ = false)  => apply Nat.ltb_ge
+  | _ => idtac
+  end.
+
 Ltac c := typeclasses eauto.
 Ltac split_proper := apply Semigroup_Proper.
 Ltac cancel_l := split_proper; [reflexivity|].
 Ltac cancel_r := split_proper; [|reflexivity].
+Ltac convert_bool := repeat convert_nat_bool_once.
 
 Section Lemmas.
 

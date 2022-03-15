@@ -245,12 +245,25 @@ Qed.
 Theorem eq_zero_blocks {m n p q} :
   0 = @blocks m n p q 0 0 0 0.
 Proof.
-Admitted.
+apply vec_ext; intros i; apply vec_ext; intros j.
+rewrite vlookup_blocks; destruct (fin_sum i), (fin_sum j);
+rewrite ?vlookup_zero; done.
+Qed.
 
 Theorem eq_one_blocks {m n} :
   1 = @blocks m n m n 1 0 0 1.
 Proof.
-Admitted.
+apply vec_ext; intros i; apply vec_ext; intros j; rewrite vlookup_blocks.
+unfold fin_sum; destruct (fin_sum_sig i) as [[i' Hi]|[i' Hi]];
+destruct (fin_sum_sig j) as [[j' Hj]|[j' Hj]].
+all: assert (Hi' := fin_to_nat_lt i'); assert (Hj' := fin_to_nat_lt j').
+all: rewrite ?vlookup_zero, ?vlookup_one; try rewrite <-Hi; try rewrite <-Hj.
+- reflexivity.
+- replace (i =? m + j') with false; [done|symmetry]; convert_bool; lia.
+- replace (m + i' =? j) with false; [done|symmetry]; convert_bool; lia.
+- destruct (m + i' =? m + j') eqn:?, (i' =? j') eqn:?;
+  convert_bool; try done; lia.
+Qed.
 
 Theorem equiv_add_blocks {m n p q}
   (a a' : mat m p) (b b' : mat m q)
