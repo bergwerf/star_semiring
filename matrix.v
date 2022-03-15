@@ -40,16 +40,20 @@ End Matrix_transposition.
 Section Matrix_multiplication.
 
 Context `{SR : Semiring X}.
+Notation mat m n := (mat X m n).
 
-Definition mat_dot {m n p} (a : mat X m n) (b : mat X n p) i j : X :=
+Definition mat_dot {m n p} (a : mat m n) (b : mat n p) i j : X :=
   Σ ((λ k, a@i@k * b@k@j) <$> `[n]`).
 
-Definition mat_mul {m n p} (a : mat X m n) (b : mat X n p) : mat X m p :=
+Definition mat_mul {m n p} (a : mat m n) (b : mat n p) : mat m p :=
   mat_build (mat_dot a b).
+
+Definition mat_one {n} :=
+  mat_build (λ i j : fin n, if i =? j then 1 else 0).
 
 Notation "a × b" := (mat_mul a b) (at level 40).
 
-Lemma lookup_mat_mul {m n p} (a : mat X m n) (b : mat X n p) i j :
+Lemma lookup_mat_mul {m n p} (a : mat m n) (b : mat n p) i j :
   (a × b)@i@j = Σ ((λ k, a@i@k * b@k@j) <$> `[n]`).
 Proof.
 unfold mat_mul; rewrite lookup_mat_build; done.
@@ -66,12 +70,69 @@ Qed.
 
 End Proper.
 
+Section Absorption.
+
+Theorem left_absorb_mat_mul {m n p} (a : mat n p) :
+  @mat_mul m n p 0 a ≡ 0.
+Proof.
+intros i k; rewrite lookup_mat_mul, ?lookup_zero.
+apply equiv_Σ_0, Forall_forall; intros x Hx.
+apply elem_of_list_fmap in Hx as (j & -> & _).
+rewrite ?lookup_zero; symmetry; apply left_absorb; c.
+Qed.
+
+Theorem right_absorb_mat_mul {m n p} (a : mat m n) :
+  @mat_mul m n p a 0 ≡ 0.
+Proof.
+intros i k; rewrite lookup_mat_mul, ?lookup_zero.
+apply equiv_Σ_0, Forall_forall; intros x Hx.
+apply elem_of_list_fmap in Hx as (j & -> & _).
+rewrite ?lookup_zero; symmetry; apply right_absorb; c.
+Qed.
+
+End Absorption.
+
+Section Identity.
+
+Lemma lookup_mat_one {n} (i j : fin n) : mat_one@i@j = if i =? j then 1 else 0.
+Proof. apply lookup_mat_build. Qed.
+
+Lemma Σ_eqb_indicator (x : X) (n : nat) (j : fin n) :
+  j < n -> Σ ((λ i : fin n, if i =? j then x else 0) <$> `[n]`) ≡ x.
+Proof.
+intros; eapply Σ_indicator with (f:=λ _, x)(j:=j).
+intros; split; intros Heq. apply Nat.eqb_eq, fin_to_nat_inj in Heq; done.
+rewrite Heq; apply Nat.eqb_refl. apply NoDup_vseq. apply elem_of_vseq.
+Qed.
+
+Theorem left_id_mat_mul {m n} (a : mat m n) :
+  mat_one × a ≡ a.
+Proof.
+intros i j; erewrite lookup_mat_mul, equiv_Σ_fmap.
+apply Σ_eqb_indicator with (j:=i), fin_to_nat_lt.
+intros k _; rewrite lookup_mat_one, Nat.eqb_sym; destruct (k =? i) eqn:E.
+apply Nat.eqb_eq, fin_to_nat_inj in E; subst k.
+apply left_id; c. apply left_absorb; c.
+Qed.
+
+Theorem right_id_mat_mul {m n} (a : mat m n) :
+  a × mat_one ≡ a.
+Proof.
+intros i j; erewrite lookup_mat_mul, equiv_Σ_fmap.
+apply Σ_eqb_indicator with (j:=j), fin_to_nat_lt.
+intros k _; rewrite lookup_mat_one; destruct (k =? j) eqn:E.
+apply Nat.eqb_eq, fin_to_nat_inj in E; subst k.
+apply right_id; c. apply right_absorb; c.
+Qed.
+
+End Identity.
+
 Section Associativity.
 
 Variable m n p q : nat.
-Variable a : mat X m n.
-Variable b : mat X n p.
-Variable c : mat X p q.
+Variable a : mat m n.
+Variable b : mat n p.
+Variable c : mat p q.
 
 Implicit Types k : fin p.
 Implicit Types l : fin n.
@@ -103,27 +164,34 @@ Qed.
 
 End Associativity.
 
-Section Absorption.
+Section Distributivity.
 
-Theorem left_absorb_mat_mul {m n p} (a : mat X n p) :
-  @mat_mul m n p 0 a ≡ 0.
+Lemma zip_with_fmap {U V W Y} (f : V -> W -> Y) (us : list U) g h :
+  zip_with f (g <$> us) (h <$> us) = (λ x, f (g x) (h x)) <$> us.
 Proof.
-intros i k; rewrite lookup_mat_mul, ?lookup_zero.
-apply equiv_Σ_0, Forall_forall; intros x Hx.
-apply elem_of_list_fmap in Hx as (j & -> & _).
-rewrite ?lookup_zero; symmetry; apply left_absorb; c.
+induction us; cbn. done.
+f_equal; apply IHus.
 Qed.
 
-Theorem right_absorb_mat_mul {m n p} (a : mat X m n) :
-  @mat_mul m n p a 0 ≡ 0.
+Theorem left_distr_mat_mul {m n p} (a : mat m n) (b c : mat n p) :
+  a × (b + c) ≡ a × b + a × c.
 Proof.
-intros i k; rewrite lookup_mat_mul, ?lookup_zero.
-apply equiv_Σ_0, Forall_forall; intros x Hx.
-apply elem_of_list_fmap in Hx as (j & -> & _).
-rewrite ?lookup_zero; symmetry; apply right_absorb; c.
+intros i j; rewrite ?lookup_add, ?lookup_mat_mul, equiv_Σ_zip_with_add.
+rewrite zip_with_fmap; apply equiv_Σ_fmap; intros k _.
+rewrite ?lookup_add; apply left_distr.
+rewrite ?fmap_length; done.
 Qed.
 
-End Absorption.
+Theorem right_distr_mat_mul {m n p} (a b : mat m n) (c : mat n p) :
+  (a + b) × c ≡ a × c + b × c.
+Proof.
+intros i j; rewrite ?lookup_add, ?lookup_mat_mul, equiv_Σ_zip_with_add.
+rewrite zip_with_fmap; apply equiv_Σ_fmap; intros k _.
+rewrite ?lookup_add; apply right_distr.
+rewrite ?fmap_length; done.
+Qed.
+
+End Distributivity.
 
 End Matrix_multiplication.
 
@@ -135,75 +203,28 @@ Variable X : Type.
 Variable n : nat.
 Notation mat := (mat X n n).
 
-Implicit Types i j k : fin n.
-
 Context `{SR : Semiring X}.
 
-Global Instance : One mat := mat_build (λ i j, if i =? j then 1 else 0).
+Global Instance : One mat := mat_one.
 Global Instance : Mul mat := mat_mul.
 
 Lemma mul_mat_unfold a b : a * b = a × b.
 Proof. done. Qed.
 
+Lemma mat_one_fold : mat_one = 1.
+Proof. done. Qed.
+
 Lemma lookup_one i j : 1@i@j = if i =? j then 1 else 0.
-Proof. apply lookup_mat_build. Qed.
-
-Lemma lookup_mul a b i j : (a * b)@i@j = Σ ((λ k, a@i@k * b@k@j) <$> `[n]`).
-Proof. apply lookup_mat_mul. Qed.
-
-Lemma Σ_eqb_indicator (x : X) j :
-  j < n -> Σ ((λ i, if i =? j then x else 0) <$> `[n]`) ≡ x.
-Proof.
-intros; eapply Σ_indicator with (f:=λ _, x)(j:=j).
-intros; split; intros Heq. apply Nat.eqb_eq, fin_to_nat_inj in Heq; done.
-rewrite Heq; apply Nat.eqb_refl. apply NoDup_vseq. apply elem_of_vseq.
-Qed.
-
-Lemma zip_with_fmap {U V W Y} (f : V -> W -> Y) (us : list U) g h :
-  zip_with f (g <$> us) (h <$> us) = (λ x, f (g x) (h x)) <$> us.
-Proof.
-induction us; cbn. done.
-f_equal; apply IHus.
-Qed.
-
-Global Instance : @LeftId mat (≡) 1 mul.
-Proof.
-intros a i j; erewrite lookup_mul, equiv_Σ_fmap.
-apply Σ_eqb_indicator with (j:=i), fin_to_nat_lt.
-intros k _; rewrite lookup_one, Nat.eqb_sym; destruct (k =? i) eqn:E.
-apply Nat.eqb_eq, fin_to_nat_inj in E; subst k.
-apply left_id; c. apply left_absorb; c.
-Qed.
-
-Global Instance : @RightId mat (≡) 1 mul.
-Proof.
-intros a i j; erewrite lookup_mul, equiv_Σ_fmap.
-apply Σ_eqb_indicator with (j:=j), fin_to_nat_lt.
-intros k _; rewrite lookup_one; destruct (k =? j) eqn:E.
-apply Nat.eqb_eq, fin_to_nat_inj in E; subst k.
-apply right_id; c. apply right_absorb; c.
-Qed.
-
-Global Instance : @LeftDistr mat (≡) mul add.
-Proof.
-intros a b c i j; rewrite ?lookup_add, ?lookup_mul, equiv_Σ_zip_with_add.
-rewrite zip_with_fmap; apply equiv_Σ_fmap; intros k _.
-rewrite ?lookup_add; apply left_distr.
-rewrite ?fmap_length; done.
-Qed.
-
-Global Instance : @RightDistr mat (≡) mul add.
-Proof.
-intros a b c i j; rewrite ?lookup_add, ?lookup_mul, equiv_Σ_zip_with_add.
-rewrite zip_with_fmap; apply equiv_Σ_fmap; intros k _.
-rewrite ?lookup_add; apply right_distr.
-rewrite ?fmap_length; done.
-Qed.
+Proof. apply lookup_mat_one. Qed.
 
 Global Instance : Semiring mat.
 Proof.
 repeat split; try c.
 intros a b c; apply assoc_mat_mul.
+intros a; apply left_id_mat_mul.
+intros a; apply right_id_mat_mul.
+intros a b c; apply left_distr_mat_mul.
+intros a b c; apply right_distr_mat_mul.
 intros a; apply left_absorb_mat_mul.
 intros a; apply right_absorb_mat_mul.
 Qed.

@@ -37,9 +37,18 @@ Proof.
 unfold mat_star_blocks.
 rewrite eq_one_blocks, mul_mat_unfold, equiv_mul_blocks, equiv_add_blocks.
 remember (a + (b × star_n d) × c) as f; apply proper_blocks.
-- rewrite assoc_mat_mul, <-right_distr, assoc_mat_mul, <-Heqf.
+- rewrite assoc_mat_mul, <-right_distr_mat_mul, assoc_mat_mul, <-Heqf.
   apply left_expand_star_m.
-- rewrite left_id.
+- rewrite left_id, <-?assoc_mat_mul, assoc_mat_mul with (b:=c).
+  rewrite left_distr_mat_mul, assoc_mat_mul with (a:=b).
+  rewrite (assoc add), comm with (y:=b×_).
+  rewrite <-(assoc add), <-right_distr_mat_mul.
+  rewrite assoc_mat_mul with (a:=b), <-Heqf, assoc_mat_mul with (a:=f).
+  rewrite <-left_id_mat_mul with (a:=b×star_n d) at 2.
+  rewrite mat_one_fold, <-right_distr_mat_mul, <-mul_mat_unfold.
+  rewrite <-left_expand_star_m; reflexivity. all: c.
+- admit.
+- admit.
 Admitted.
 
 End Block_construction.
