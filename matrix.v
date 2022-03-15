@@ -142,6 +142,9 @@ Context `{SR : Semiring X}.
 Global Instance : One mat := mat_build (λ i j, if i =? j then 1 else 0).
 Global Instance : Mul mat := mat_mul.
 
+Lemma mul_mat_unfold a b : a * b = a × b.
+Proof. done. Qed.
+
 Lemma vlookup_one i j : 1@i@j = if i =? j then 1 else 0.
 Proof. apply vlookup_mat_build. Qed.
 
@@ -238,6 +241,16 @@ intros a a' Ha b b' Hb c c' Hc d d' Hd i j;
 rewrite ?vlookup_blocks; destruct (fin_sum i), (fin_sum j).
 apply Ha. apply Hb. apply Hc. apply Hd.
 Qed.
+
+Theorem eq_zero_blocks {m n p q} :
+  0 = @blocks m n p q 0 0 0 0.
+Proof.
+Admitted.
+
+Theorem eq_one_blocks {m n} :
+  1 = @blocks m n m n 1 0 0 1.
+Proof.
+Admitted.
 
 Theorem equiv_add_blocks {m n p q}
   (a a' : mat m p) (b b' : mat m q)

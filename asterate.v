@@ -10,9 +10,15 @@ Context `{SR : Star_Semiring X}.
 
 Section Inductive_construction.
 
-Definition mat_star_ind_step {m n}
-  (star_m: sq m -> sq m) (star_n: sq n -> sq n)
-  (a : sq m) (b : mat m n) (c : mat n m) (d : sq n) : sq (m + n) :=
+Section Block_construction.
+
+Variable m n : nat.
+Variable star_m: sq m -> sq m.
+Variable star_n: sq n -> sq n.
+
+Definition mat_star_blocks
+  (a : sq m) (b : mat m n)
+  (c : mat n m) (d : sq n) : sq (m + n) :=
   let d'     := star_n d     in
   let bd'    := b × d'       in
   let d'c    := d' × c       in
@@ -22,21 +28,52 @@ Definition mat_star_ind_step {m n}
   let d'cf'  := d'c × f'     in
   blocks f' f'bd' d'cf' (d' + d'cf' × bd').
 
+Lemma left_expand_mat_star_blocks a b c d :
+  mat_star_blocks a b c d ≡ 1 + blocks a b c d * mat_star_blocks a b c d.
+Proof.
+unfold mat_star_blocks; cbn.
+rewrite eq_one_blocks, mul_mat_unfold, equiv_mul_blocks, equiv_add_blocks.
+apply proper_blocks.
+Admitted.
+
+End Block_construction.
+
+Arguments mat_star_blocks {_ _}.
+
+Definition mat_S_partition {n} (a : sq (S n)) :=
+  (([# [# vhd (vhd a) ]], [# vtl (vhd a) ]),
+  (vmap (λ r, [# vhd r ]) (vtl a), vmap vtl (vtl a))).
+
+Definition mat_star_ind_step {n} star_ind (a : sq (S n)) :=
+  let p := mat_S_partition a in
+  mat_star_blocks (mat_map star) star_ind p.1.1 p.1.2 p.2.1 p.2.2.
+
 Fixpoint mat_star_ind {n} : sq n -> sq n :=
   match n with
   | 0 => λ x, x
-  | S m => λ x : mat (S m) (S m),
-    let a := [# [# vhd (vhd x) ]] in
-    let b := [# vtl (vhd x) ] in
-    let c := vmap (λ r, [# vhd r ]) (vtl x) in
-    let d := vmap vtl (vtl x) in
-    mat_star_ind_step (mat_map star) mat_star_ind a b c d
+  | S m => mat_star_ind_step mat_star_ind
   end.
+
+Lemma blocks_S_partition {n} (a : sq (S n)) :
+  let p := mat_S_partition a in
+  a = blocks p.1.1 p.1.2 p.2.1 p.2.2.
+Proof.
+Admitted.
+
+Lemma mat_star_ind_S_unfold {n} (a : sq (S n)) :
+  mat_star_ind a = mat_star_ind_step mat_star_ind a.
+Proof.
+done.
+Qed.
 
 Lemma left_expand_mat_star_ind n (a : sq n) :
   mat_star_ind a ≡ 1 + a * mat_star_ind a.
 Proof.
-Admitted.
+induction n. cbn; inv_vec a; done.
+rewrite blocks_S_partition with (a:=a) at 2.
+rewrite mat_star_ind_S_unfold; unfold mat_star_ind_step.
+rewrite left_expand_mat_star_blocks at 1; done.
+Qed.
 
 Lemma right_expand_mat_star_ind n (a : sq n) :
   mat_star_ind a ≡ 1 + mat_star_ind a * a.
