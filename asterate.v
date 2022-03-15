@@ -28,12 +28,18 @@ Definition mat_star_blocks
   let d'cf'  := d'c × f'     in
   blocks f' f'bd' d'cf' (d' + d'cf' × bd').
 
+Hypothesis left_expand_star_m : ∀ a, star_m a ≡ 1 + a * star_m a.
+Hypothesis left_expand_star_n : ∀ a, star_n a ≡ 1 + a * star_n a.
+
 Lemma left_expand_mat_star_blocks a b c d :
   mat_star_blocks a b c d ≡ 1 + blocks a b c d * mat_star_blocks a b c d.
 Proof.
-unfold mat_star_blocks; cbn.
+unfold mat_star_blocks.
 rewrite eq_one_blocks, mul_mat_unfold, equiv_mul_blocks, equiv_add_blocks.
-apply proper_blocks.
+remember (a + (b × star_n d) × c) as f; apply proper_blocks.
+- rewrite assoc_mat_mul, <-right_distr, assoc_mat_mul, <-Heqf.
+  apply left_expand_star_m.
+- rewrite left_id.
 Admitted.
 
 End Block_construction.
@@ -58,7 +64,11 @@ Lemma blocks_S_partition {n} (a : sq (S n)) :
   let p := mat_S_partition a in
   a = blocks p.1.1 p.1.2 p.2.1 p.2.2.
 Proof.
-Admitted.
+inv_vec a; intros a0 a. inv_vec a0; intros a00 a01.
+apply vec_ext; intros i; apply vec_ext; intros j; inv_fin i; inv_fin j;
+cbn; try done; intros; f_equal; rewrite vlookup_zip_with, ?vlookup_map; cbn.
+all: rewrite <-Vector.eta; reflexivity.
+Qed.
 
 Lemma mat_star_ind_S_unfold {n} (a : sq (S n)) :
   mat_star_ind a = mat_star_ind_step mat_star_ind a.
@@ -72,8 +82,9 @@ Proof.
 induction n. cbn; inv_vec a; done.
 rewrite blocks_S_partition with (a:=a) at 2.
 rewrite mat_star_ind_S_unfold; unfold mat_star_ind_step.
-rewrite left_expand_mat_star_blocks at 1; done.
-Qed.
+rewrite left_expand_mat_star_blocks at 1.
+done. admit. apply IHn.
+Admitted.
 
 Lemma right_expand_mat_star_ind n (a : sq n) :
   mat_star_ind a ≡ 1 + mat_star_ind a * a.

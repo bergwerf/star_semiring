@@ -46,7 +46,7 @@ Context {m n : nat}.
 Implicit Types i : fin m.
 Implicit Types j : fin n.
 
-Lemma vlookup_unfold {X} (u : vec X m) i : u@i = u !!! i.
+Lemma lookup_unfold {X} (u : vec X m) i : u@i = u !!! i.
 Proof. done. Qed.
 
 Lemma vlookup_vseq i :
@@ -152,17 +152,17 @@ Context `{Add X, Zero X, Comm_Monoid _ (≡) add 0}.
 Global Instance : Add vec := vzip_with add.
 Global Instance : Zero vec := vreplicate n 0.
 
-Lemma vlookup_add u v i : (u + v)@i = u@i + v@i.
+Lemma lookup_add u v i : (u + v)@i = u@i + v@i.
 Proof. apply vlookup_zip_with. Qed.
 
-Lemma vlookup_zero i : 0@i = 0.
+Lemma lookup_zero i : 0@i = 0.
 Proof. apply vlookup_replicate. Qed.
 
 Global Instance : Comm_Monoid vec (≡) add 0.
 Proof.
 repeat split.
-intros a b Hab u v Huv i; rewrite ?vlookup_add, (Hab i), (Huv i); done.
-all: repeat intros ?; rewrite ?vlookup_add, ?vlookup_zero.
+intros a b Hab u v Huv i; rewrite ?lookup_add, (Hab i), (Huv i); done.
+all: repeat intros ?; rewrite ?lookup_add, ?lookup_zero.
 apply assoc; c. apply left_id; c. apply right_id; c. apply comm; c.
 Qed.
 
@@ -170,7 +170,7 @@ Context `{IdemP X (≡) add}.
 
 Global Instance : @IdemP vec (≡) add.
 Proof.
-intros v i; rewrite vlookup_add; done.
+intros v i; rewrite lookup_add; done.
 Qed.
 
 End Vector_addition.
