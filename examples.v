@@ -1,4 +1,4 @@
-From stars Require Import definitions arithmetic regular matrix asterate.
+From stars Require Import definitions arithmetic regular vector matrix asterate.
 
 (*** This example show how to compute the reflexive transitive closure. *)
 Module Ex1.

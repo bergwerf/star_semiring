@@ -30,7 +30,7 @@ Fixpoint mat_star_ind {n} : sq n -> sq n :=
     let b := [# vtl (vhd x) ] in
     let c := vmap (λ r, [# vhd r ]) (vtl x) in
     let d := vmap vtl (vtl x) in
-    mat_star_ind_step (vmap (vmap star)) mat_star_ind a b c d
+    mat_star_ind_step (mat_map star) mat_star_ind a b c d
   end.
 
 Lemma left_expand_mat_star_ind n (a : sq n) :

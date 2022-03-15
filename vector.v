@@ -35,17 +35,20 @@ Section Vector_lookups.
 
 Context {m n : nat}.
 
-Lemma vlookup_unfold {X k} (u : vec X k) i : u@i = u !!! i.
+Implicit Types i : fin m.
+Implicit Types j : fin n.
+
+Lemma vlookup_unfold {X} (u : vec X m) i : u@i = u !!! i.
 Proof. done. Qed.
 
-Lemma vlookup_vseq {k} i :
-  vseq k !!! i = i.
+Lemma vlookup_vseq i :
+  vseq m !!! i = i.
 Proof.
 induction i; cbn. done.
 rewrite vlookup_map, IHi; done.
 Qed.
 
-Lemma vec_ext {X} (a b : vec X n) :
+Lemma vec_ext {X} (a b : vec X m) :
   (∀ i, a@i = b@i) -> a = b.
 Proof.
 revert b; induction a; intros; inv_vec b; intros. done.
@@ -55,44 +58,65 @@ Qed.
 
 Section Vector_append.
 
-Lemma fin_to_nat_eq (i j : fin n) :
-  fin_to_nat i = fin_to_nat j -> i = j.
-Proof.
-revert j; induction i; cbn; intros; inv_fin j; intros; try done.
-cbn in H; apply eq_add_S, IHi in H; subst; done.
-Qed.
+Implicit Types k : fin (m + n).
 
-Lemma fin_sum_sig (i : fin (m + n)) :
-  { i_m : fin m | i < m /\ @eq nat i i_m } +
-  { i_n : fin n | i ≥ m /\ Nat.add m i_n = i }.
+Lemma fin_sum_sig k :
+  { i : fin m | k < m /\ @eq nat k i } +
+  { j : fin n | k ≥ m /\ (m + j)%nat = k }.
 Proof.
-destruct (lt_dec i m) as [H|H]; [left|right].
+destruct (lt_dec k m) as [H|H]; [left|right].
 - exists (nat_to_fin H); split.
   done. symmetry; apply fin_to_nat_to_fin.
 - apply Nat.nlt_ge in H.
-  assert (Hi := fin_to_nat_lt i).
-  assert (Hi' : i - m < n) by lia.
-  exists (nat_to_fin Hi'); split.
+  assert (Hk := fin_to_nat_lt k).
+  assert (Hi : k - m < n) by lia.
+  exists (nat_to_fin Hi); split.
   done. rewrite fin_to_nat_to_fin; lia.
 Qed.
 
-Definition fin_sum (i : fin (m + n)) :=
-  match fin_sum_sig i with
-  | inl (exist _ i' _) => inl i'
-  | inr (exist _ i' _) => inr i'
+Definition fin_sum k :=
+  match fin_sum_sig k with
+  | inl (exist _ i _) => inl i
+  | inr (exist _ j _) => inr j
   end.
 
-Lemma vlookup_vapp {X} (u : vec X m) (v : vec X n) (i : fin (m + n)) :
-  (u +++ v) !!! i = match fin_sum i with
-  | inl i' => u !!! i'
-  | inr i' => v !!! i'
+Local Ltac destruct_fin_sum := unfold fin_sum;
+  destruct (fin_sum_sig _) as [(i'&Hlt&Heq)|(j'&Hge&Heq)].
+
+Lemma fin_to_nat_L i : fin_to_nat (Fin.L n i) = fin_to_nat i.
+Proof. induction i; cbn; congruence. Qed.
+
+Lemma fin_to_nat_R j : fin_to_nat (Fin.R m j) = (m + fin_to_nat j)%nat.
+Proof. induction m; cbn; congruence. Qed.
+
+Lemma fin_sum_L i :
+  fin_sum (Fin.L _ i) = inl i.
+Proof.
+destruct_fin_sum.
+- rewrite fin_to_nat_L in Heq; apply fin_to_nat_inj in Heq; subst; done.
+- rewrite fin_to_nat_L in Hge; assert(Hi := fin_to_nat_lt i); lia.
+Qed.
+
+Lemma fin_sum_R j :
+  fin_sum (Fin.R _ j) = inr j.
+Proof.
+destruct_fin_sum.
+- rewrite fin_to_nat_R in Hlt; lia.
+- rewrite fin_to_nat_R in Heq; apply Nat.add_cancel_l in Heq.
+  apply fin_to_nat_inj in Heq; subst; done.
+Qed.
+
+Lemma vlookup_vapp {X} (u : vec X m) (v : vec X n) k :
+  (u +++ v) !!! k = match fin_sum k with
+  | inl i => u !!! i
+  | inr j => v !!! j
   end.
 Proof.
-unfold fin_sum; destruct (fin_sum_sig i) as [Hi|Hi]; destruct Hi as (i'&Hi&Hi').
-- induction u; cbn. lia. inv_fin i; inv_fin i'; cbn; intros; try done.
-  apply IHu. apply lt_S_n, Hi. apply eq_add_S, Hi'.
-- induction u; cbn in *. apply fin_to_nat_eq in Hi'; subst; done.
-  inv_fin i; cbn; intros. done. apply IHu; lia.
+destruct_fin_sum.
+- induction u; cbn in *. lia. inv_fin k; inv_fin i'; cbn; intros; try done.
+  apply IHu. apply lt_S_n, Hlt. apply eq_add_S, Heq.
+- induction u; cbn in *. apply fin_to_nat_inj in Heq; subst; done.
+  inv_fin k; cbn; intros. done. apply IHu; lia.
 Qed.
 
 End Vector_append.

@@ -2,10 +2,13 @@ From stars Require Import definitions vector.
 
 Notation mat X m n := (vec (vec X n) m).
 
-Section Matrix_build.
+Section Matrix_utilities.
 
 Context {X : Type}.
 Context {m n : nat}.
+
+Definition mat_map {Y} (f : X -> Y) : mat X m n -> mat Y m n :=
+  vmap (vmap f).
 
 Definition mat_build (f : fin m -> fin n -> X) : mat X m n :=
   vmap (λ i, vmap (f i) (vseq n)) (vseq m).
@@ -17,7 +20,7 @@ unfold mat_build; rewrite ?vlookup_unfold,
 ?vlookup_map, ?vlookup_vseq; done.
 Qed.
 
-End Matrix_build.
+End Matrix_utilities.
 
 Section Matrix_transposition.
 
@@ -209,12 +212,12 @@ Section Matrix_blocks.
 Context `{SR : Semiring X}.
 Notation mat m n := (mat X m n).
 
-Definition blocks {k l m n}
-  (a : mat k m) (b : mat k n)
-  (c : mat l m) (d : mat l n) : mat (k + l) (m + n) :=
+Definition blocks {m n p q}
+  (a : mat m p) (b : mat m q)
+  (c : mat n p) (d : mat n q) : mat (m + n) (p + q) :=
   vzip_with vapp a b +++ vzip_with vapp c d.
 
-Lemma vlookup_blocks {k l m n} a b c d (i : fin (k + l)) (j : fin (m + n)) :
+Lemma vlookup_blocks {m n p q} a b c d (i : fin (m + n)) (j : fin (p + q)) :
   (blocks a b c d)@i@j =
   match fin_sum i, fin_sum j with
   | inl i', inl j' => a@i'@j'
@@ -227,9 +230,9 @@ unfold blocks; rewrite ?vlookup_unfold, vlookup_vapp; destruct (fin_sum i);
 rewrite vlookup_zip_with, vlookup_vapp; destruct (fin_sum j); done.
 Qed.
 
-Theorem add_blocks {k l m n}
-  (a a' : mat k m) (b b' : mat k n)
-  (c c' : mat l m) (d d' : mat l n) :
+Theorem add_blocks {m n p q}
+  (a a' : mat m p) (b b' : mat m q)
+  (c c' : mat n p) (d d' : mat n q) :
   blocks a b c d + blocks a' b' c' d' ≡
   blocks (a + a') (b + b') (c + c') (d + d').
 Proof.
@@ -237,15 +240,27 @@ intros i j; rewrite ?vlookup_add, ?vlookup_blocks.
 destruct (fin_sum i), (fin_sum j); rewrite ?vlookup_add; done.
 Qed.
 
-Theorem mul_blocks {k l m n}
-  (a : mat k m) (b : mat k n)
-  (c : mat l m) (d : mat l n)
-  (e : mat m k) (f : mat m l)
-  (g : mat n k) (h : mat n l) :
+Lemma Σ_fin_sum {m n p q} (a : mat m (p + q)) (b : mat (p + q) n) i j :
+  Σ ((λ k : fin (p + q), a@i@k * b@k@j) <$> `[p + q]`) ≡
+  Σ ((λ k : fin p, let l := (Fin.L q k) in a@i@l * b@l@j) <$> `[p]`) +
+  Σ ((λ k : fin q, let l := (Fin.R p k) in a@i@l * b@l@j) <$> `[q]`).
+Proof.
+Admitted.
+
+Theorem mul_blocks {m n p q}
+  (a : mat m p) (b : mat m q)
+  (c : mat n p) (d : mat n q)
+  (e : mat p m) (f : mat p n)
+  (g : mat q m) (h : mat q n) :
   blocks a b c d × blocks e f g h ≡ blocks
   (a × e + b × g) (a × f + b × h)
   (c × e + d × g) (c × f + d × h).
 Proof.
-Admitted.
+intros i j; rewrite vlookup_blocks, vlookup_mat_mul, Σ_fin_sum.
+destruct (fin_sum i) as [i'|i'] eqn:Hi, (fin_sum j) as [j'|j'] eqn:Hj.
+all: rewrite ?vlookup_add, ?vlookup_mat_mul; split_proper.
+all: apply equiv_Σ_fmap; intros k _; cbn; rewrite ?vlookup_blocks, Hi, Hj.
+all: rewrite ?fin_sum_L, ?fin_sum_R; reflexivity.
+Qed.
 
 End Matrix_blocks.
