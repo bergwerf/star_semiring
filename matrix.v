@@ -48,7 +48,7 @@ Definition mat_dot {m n p} (a : mat m n) (b : mat n p) i j : X :=
 Definition mat_mul {m n p} (a : mat m n) (b : mat n p) : mat m p :=
   mat_build (mat_dot a b).
 
-Definition mat_id {n} :=
+Global Instance mat_id n : One (mat n n) :=
   mat_build (λ i j : fin n, if i =? j then 1 else 0).
 
 Notation "a × b" := (mat_mul a b) (at level 40).
@@ -94,7 +94,7 @@ End Absorption.
 
 Section Identity.
 
-Lemma lookup_mat_id {n} (i j : fin n) : mat_id@i@j = if i =? j then 1 else 0.
+Lemma lookup_mat_id {n} (i j : fin n) : 1@i@j = if i =? j then 1 else 0.
 Proof. apply lookup_mat_build. Qed.
 
 Lemma Σ_eqb_indicator (x : X) (n : nat) (j : fin n) :
@@ -106,7 +106,7 @@ rewrite Heq; apply Nat.eqb_refl. apply NoDup_vseq. apply elem_of_vseq.
 Qed.
 
 Theorem left_id_mat_mul {m n} (a : mat m n) :
-  mat_id × a ≡ a.
+  1 × a ≡ a.
 Proof.
 intros i j; erewrite lookup_mat_mul, equiv_Σ_fmap.
 apply Σ_eqb_indicator with (j:=i), fin_to_nat_lt.
@@ -116,7 +116,7 @@ apply left_id; c. apply left_absorb; c.
 Qed.
 
 Theorem right_id_mat_mul {m n} (a : mat m n) :
-  a × mat_id ≡ a.
+  a × 1 ≡ a.
 Proof.
 intros i j; erewrite lookup_mat_mul, equiv_Σ_fmap.
 apply Σ_eqb_indicator with (j:=j), fin_to_nat_lt.
@@ -205,17 +205,10 @@ Notation mat := (mat X n n).
 
 Context `{SR : Semiring X}.
 
-Global Instance : One mat := mat_id.
 Global Instance : Mul mat := mat_mul.
 
 Lemma mat_mul_fold a b : a × b = a * b.
 Proof. done. Qed.
-
-Lemma mat_id_fold : mat_id = 1.
-Proof. done. Qed.
-
-Lemma lookup_one i j : 1@i@j = if i =? j then 1 else 0.
-Proof. apply lookup_mat_id. Qed.
 
 Global Instance : Semiring mat.
 Proof.
@@ -277,7 +270,7 @@ apply vec_ext; intros i; apply vec_ext; intros j; rewrite lookup_blocks.
 unfold fin_sum; destruct (fin_sum_sig i) as [[i' Hi]|[i' Hi]];
 destruct (fin_sum_sig j) as [[j' Hj]|[j' Hj]].
 all: assert (Hi' := fin_to_nat_lt i'); assert (Hj' := fin_to_nat_lt j').
-all: rewrite ?lookup_zero, ?lookup_one; try rewrite <-Hi; try rewrite <-Hj.
+all: rewrite ?lookup_zero, ?lookup_mat_id; try rewrite <-Hi; try rewrite <-Hj.
 - reflexivity.
 - replace (i =? m + j') with false; [done|symmetry]; convert_bool; lia.
 - replace (m + i' =? j) with false; [done|symmetry]; convert_bool; lia.

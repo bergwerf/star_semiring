@@ -35,7 +35,7 @@ Hypothesis left_expand_star_m : ∀ a, a{m*} ≡ 1 + a * a{m*}.
 Hypothesis left_expand_star_n : ∀ a, a{n*} ≡ 1 + a * a{n*}.
 
 Local Ltac reduce :=
-  rewrite ?(left_id 0 add), ?(assoc add), ?assoc_mat_mul, ?mat_id_fold.
+  rewrite ?(left_id 0 add), ?(assoc add), ?assoc_mat_mul.
 
 Lemma left_expand_mat_star_blocks a b c d :
   mat_star_blocks a b c d ≡ 1 + blocks a b c d * mat_star_blocks a b c d.
@@ -47,7 +47,7 @@ remember (a + b × d{n*} × c) as f; apply proper_blocks; reduce.
   rewrite <-Heqf; apply left_expand_star_m.
 - rewrite left_distr_mat_mul; reduce.
   rewrite (comm add) with (y:=b×_), <-(assoc add).
-  rewrite <-left_id_mat_mul with (a:=b×_) at 1; rewrite mat_id_fold.
+  rewrite <-left_id_mat_mul with (a:=b×_) at 1.
   rewrite <-?right_distr_mat_mul, <-Heqf; reduce.
   rewrite <-?right_distr_mat_mul, mat_mul_fold, <-left_expand_star_m; done.
 - rewrite <-left_id_mat_mul with (a:=c×_); reduce.
@@ -56,7 +56,7 @@ remember (a + b × d{n*} × c) as f; apply proper_blocks; reduce.
 - rewrite ?left_distr_mat_mul; reduce.
   rewrite <-?(assoc add), <-?right_distr_mat_mul.
   rewrite (comm add) with (x:=_×b), <-(assoc add), <-?right_distr_mat_mul.
-  rewrite <-left_id_mat_mul with (a:=c) at 3; reduce.
+  rewrite <-left_id_mat_mul with (a:=c) at 3.
   rewrite <-?right_distr_mat_mul, (comm add) with (y:=1).
   rewrite ?mat_mul_fold, <-left_expand_star_n, <-?mat_mul_fold.
   rewrite right_distr_mat_mul; reduce.
