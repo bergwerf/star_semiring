@@ -31,36 +31,43 @@ Definition mat_star_blocks
   let d'cf'  := d'c × f'     in
   blocks f' f'bd' d'cf' (d' + d'cf' × bd').
 
+Ltac semiring_remove_zero :=
+  rewrite ?(left_id 0 add), ?(right_id 0 add);
+  rewrite ?(left_absorb 0 mul), ?(right_absorb 0 mul).
+
+Ltac semiring_normalize_add :=
+  rewrite ?(assoc add).
+
+Ltac semiring_cycle_add :=
+  etrans; [apply (comm add)|semiring_normalize_add].
+
+Ltac semiring_cancel :=
+  reflexivity || cancel_r || semiring_cycle_add.
+
+Ltac mat_normalize :=
+  rewrite <-?mat_mul_fold;
+  rewrite ?left_distr_mat_mul, ?right_distr_mat_mul, ?assoc_mat_mul;
+  rewrite ?left_id_mat_mul, ?right_id_mat_mul; semiring_normalize_add.
+
 Hypothesis left_expand_star_m : ∀ a, a{m*} ≡ 1 + a * a{m*}.
 Hypothesis left_expand_star_n : ∀ a, a{n*} ≡ 1 + a * a{n*}.
-
-Local Ltac reduce :=
-  rewrite ?(left_id 0 add), ?(assoc add), ?assoc_mat_mul.
 
 Lemma left_expand_mat_star_blocks a b c d :
   mat_star_blocks a b c d ≡ 1 + blocks a b c d * mat_star_blocks a b c d.
 Proof.
 unfold mat_star_blocks.
 rewrite <-mat_mul_fold, eq_one_blocks, equiv_mul_blocks, equiv_add_blocks.
-remember (a + b × d{n*} × c) as f; apply proper_blocks; reduce.
-- rewrite <-(assoc add), <-right_distr_mat_mul.
-  rewrite <-Heqf; apply left_expand_star_m.
-- rewrite left_distr_mat_mul; reduce.
-  rewrite (comm add) with (y:=b×_), <-(assoc add).
-  rewrite <-left_id_mat_mul with (a:=b×_) at 1.
-  rewrite <-?right_distr_mat_mul, <-Heqf; reduce.
-  rewrite <-?right_distr_mat_mul, mat_mul_fold, <-left_expand_star_m; done.
-- rewrite <-left_id_mat_mul with (a:=c×_); reduce.
-  rewrite <-?right_distr_mat_mul, mat_mul_fold.
-  rewrite <-left_expand_star_n; done.
-- rewrite ?left_distr_mat_mul; reduce.
-  rewrite <-?(assoc add), <-?right_distr_mat_mul.
-  rewrite (comm add) with (x:=_×b), <-(assoc add), <-?right_distr_mat_mul.
-  rewrite <-left_id_mat_mul with (a:=c) at 3.
-  rewrite <-?right_distr_mat_mul, (comm add) with (y:=1).
-  rewrite ?mat_mul_fold, <-left_expand_star_n, <-?mat_mul_fold.
-  rewrite right_distr_mat_mul; reduce.
-  rewrite ?mat_mul_fold, <-left_expand_star_n; done.
+remember (a + b × d{n*} × c) as f; apply proper_blocks; semiring_remove_zero.
+- rewrite left_expand_star_m at 1; rewrite Heqf at 1.
+  mat_normalize; do 1 semiring_cancel.
+- rewrite left_expand_star_m at 1; rewrite Heqf at 1.
+  mat_normalize; do 3 semiring_cancel.
+- rewrite left_expand_star_n at 1.
+  mat_normalize; do 1 semiring_cancel.
+- trans (d{n*} × (1 + c × f{m*} × b × d{n*})).
+  mat_normalize; do 1 semiring_cancel.
+  rewrite left_expand_star_n at 1.
+  mat_normalize; do 5 semiring_cancel.
 Qed.
 
 End Block_construction.
