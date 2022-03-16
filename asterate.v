@@ -49,6 +49,8 @@ Ltac mat_normalize :=
   rewrite ?left_distr_mat_mul, ?right_distr_mat_mul, ?assoc_mat_mul;
   rewrite ?left_id_mat_mul, ?right_id_mat_mul; semiring_normalize_add.
 
+Section Left_expand.
+
 Hypothesis left_expand_star_m : ∀ a, a{m*} ≡ 1 + a * a{m*}.
 Hypothesis left_expand_star_n : ∀ a, a{n*} ≡ 1 + a * a{n*}.
 
@@ -69,6 +71,47 @@ remember (a + b × d{n*} × c) as f; apply proper_blocks; semiring_remove_zero.
   rewrite left_expand_star_n at 1.
   mat_normalize; do 5 semiring_cancel.
 Qed.
+
+End Left_expand.
+
+Section Right_expand.
+
+Hypothesis right_expand_star_m : ∀ a, a{m*} ≡ 1 + a{m*} * a.
+Hypothesis right_expand_star_n : ∀ a, a{n*} ≡ 1 + a{n*} * a.
+
+Lemma right_expand_mat_star_blocks a b c d :
+  mat_star_blocks a b c d ≡ 1 + mat_star_blocks a b c d * blocks a b c d.
+Proof.
+unfold mat_star_blocks.
+rewrite <-mat_mul_fold, eq_one_blocks, equiv_mul_blocks, equiv_add_blocks.
+remember (a + b × d{n*} × c) as f; apply proper_blocks; semiring_remove_zero.
+- rewrite right_expand_star_m at 1; rewrite Heqf at 2.
+  mat_normalize; do 1 semiring_cancel.
+- rewrite right_expand_star_n at 1.
+  mat_normalize; do 1 semiring_cancel.
+- rewrite right_expand_star_m at 1; rewrite Heqf at 2.
+  mat_normalize; do 3 semiring_cancel.
+- trans ((1 + d{n*} × c × f{m*} × b) × d{n*}).
+  mat_normalize; do 1 semiring_cancel.
+  rewrite right_expand_star_n at 2.
+  mat_normalize; do 1 semiring_cancel.
+Qed.
+
+End Right_expand.
+
+Section Left_intro.
+
+Hypothesis  left_intro_star_m : ∀ a x, a * x ⪯ x -> a{m*} * x ⪯ x.
+Hypothesis  left_intro_star_n : ∀ a x, a * x ⪯ x -> a{n*} * x ⪯ x.
+
+End Left_intro.
+
+Section Right_intro.
+
+Hypothesis  right_intro_star_m : ∀ a x, x * a ⪯ x -> x * a{m*} ⪯ x.
+Hypothesis  right_intro_star_n : ∀ a x, x * a ⪯ x -> x * a{n*} ⪯ x.
+
+End Right_intro.
 
 End Block_construction.
 
@@ -104,6 +147,8 @@ cbn; try done; intros; f_equal; rewrite vlookup_zip_with, ?vlookup_map; cbn.
 all: rewrite <-Vector.eta; reflexivity.
 Qed.
 
+Section Mat_map_star.
+
 Ltac inv_fin_1 i := inv_fin i; [|intros i; inv_fin i].
 
 Lemma left_expand_mat_map_star (a : sq 1) :
@@ -113,20 +158,34 @@ inv_vec a; intros a; inv_vec a; intros x i j; inv_fin_1 i; inv_fin_1 j; cbn.
 rewrite (right_id 0 add); apply left_expand_star.
 Qed.
 
+Lemma right_expand_mat_map_star (a : sq 1) :
+  mat_map star a ≡ 1 + mat_map star a * a.
+Proof.
+inv_vec a; intros a; inv_vec a; intros x i j; inv_fin_1 i; inv_fin_1 j; cbn.
+rewrite (right_id 0 add); apply right_expand_star.
+Qed.
+
+End Mat_map_star.
+
 Lemma left_expand_mat_star_ind n (a : sq n) :
   mat_star_ind a ≡ 1 + a * mat_star_ind a.
 Proof.
 induction n. cbn; inv_vec a; done.
 rewrite blocks_S_partition with (a:=a) at 2.
 rewrite mat_star_ind_S_unfold; unfold mat_star_ind_step.
-rewrite left_expand_mat_star_blocks at 1.
-done. apply left_expand_mat_map_star. apply IHn.
+rewrite left_expand_mat_star_blocks at 1; [done|idtac|apply IHn].
+apply left_expand_mat_map_star.
 Qed.
 
 Lemma right_expand_mat_star_ind n (a : sq n) :
   mat_star_ind a ≡ 1 + mat_star_ind a * a.
 Proof.
-Admitted.
+induction n. cbn; inv_vec a; done.
+rewrite blocks_S_partition with (a:=a) at 3.
+rewrite mat_star_ind_S_unfold; unfold mat_star_ind_step.
+rewrite right_expand_mat_star_blocks at 1; [done|idtac|apply IHn].
+apply right_expand_mat_map_star.
+Qed.
 
 Lemma left_intro_mat_star_ind n (a b : sq n) :
   a * b ⪯ b -> mat_star_ind a * b ⪯ b.
