@@ -90,6 +90,34 @@ Global Instance : Semiring N. auto_resolve. Qed.
 
 End Positive.
 
+(*** Arithmetic of rational numbers. *)
+Section Rational.
+
+Coercion inject_Z : Z >-> Q.
+
+Global Instance : Equiv Q := Qeq.
+Global Instance : Zero Q := 0%Z.
+Global Instance : One Q := 1%Z.
+Global Instance : Add Q := Qplus.
+Global Instance : Mul Q := Qmult.
+
+Global Instance : RelDecision Qeq := Qeq_dec.
+Global Instance : Assoc (≡) add := Qplus_assoc.
+Global Instance : LeftId (≡) 0 add := Qplus_0_l.
+Global Instance : RightId (≡) 0 add := Qplus_0_r.
+Global Instance : Comm (≡) add := Qplus_comm.
+Global Instance : Assoc (≡) mul := Qmult_assoc.
+Global Instance : LeftId (≡) 1 mul := Qmult_1_l.
+Global Instance : RightId (≡) 1 mul := Qmult_1_r.
+Global Instance : Comm (≡) mul := Qmult_comm.
+Global Instance : LeftAbsorb (≡) 0 mul := Qmult_0_l.
+Global Instance : RightAbsorb (≡) 0 mul := Qmult_0_r.
+Global Instance : LeftDistr (≡) mul add := Qmult_plus_distr_r.
+Global Instance : RightDistr (≡) mul add := Qmult_plus_distr_l.
+Global Instance : Semiring Q. auto_resolve. Qed.
+
+End Rational.
+
 (*** Arithmetic of minimum and addition. *)
 (* Tropical is a reference to the climate of Brazil, where Imre Simon lived. *)
 (* Imre Simon (1943-2009) founded the topic of tropical mathematics. *)
@@ -102,29 +130,30 @@ Context `{LeftAbsorb X (≡) 0 min, RightAbsorb X (≡) 0 min}.
 Context `{LeftDistr X (≡) add min, RightDistr X (≡) add min}.
 Context `{IdemP X (≡) min}.
 
-Inductive trop := Tropical (x : X) | Infinity.
+Inductive trop := Tropical (x : X) | TInfinity.
 
 Global Instance : Equiv trop := λ a b,
   match a, b with
   | Tropical x, Tropical y => x ≡ y
-  | Infinity, Infinity => True
+  | TInfinity, TInfinity => True
   | _, _ => False
   end.
 
-Global Instance : Zero trop := Infinity.
+Global Instance : Infinity trop := TInfinity.
+Global Instance : Zero trop := TInfinity.
 Global Instance : One trop := Tropical 0.
 
 Global Instance : Add trop :=
   λ a b, match a, b with
-  | Infinity, _ => b
-  | _, Infinity => a
+  | TInfinity, _ => b
+  | _, TInfinity => a
   | Tropical x, Tropical y => Tropical (min x y)
   end.
 
 Global Instance : Mul trop :=
   λ a b, match a, b with
-  | Infinity, _ => Infinity
-  | _, Infinity => Infinity
+  | TInfinity, _ => TInfinity
+  | _, TInfinity => TInfinity
   | Tropical x, Tropical y => Tropical (x + y)
   end.
 
@@ -145,4 +174,64 @@ Qed.
 End Tropical.
 
 Arguments Tropical {_}.
-Arguments Infinity {_}.
+Arguments TInfinity {_}.
+
+(*** One-point compactification of the rational numbers. *)
+Section Compact.
+
+Inductive frac :=
+  | Frac (q : Q)
+  | Inf.
+
+Coercion Frac : Q >-> frac.
+
+Global Instance : Equiv frac := λ x y,
+  match x, y with
+  | Frac p, Frac q => p == q
+  | Inf, Inf => True
+  | _, _ => False
+  end.
+
+Global Instance : Infinity frac := Inf.
+Global Instance : Zero frac := 0%Z.
+Global Instance : One frac := 1%Z.
+
+Global Instance : Add frac := λ x y,
+  match x, y with
+  | Inf, _ => Inf
+  | _, Inf => Inf
+  | Frac p, Frac q => Qred (p + q)
+  end.
+
+Global Instance : Mul frac := λ x y,
+  match x, y with
+  | Frac (Qmake Z0 _), _ => 0
+  | _, Frac (Qmake Z0 _) => 0
+  | Inf, _ => Inf
+  | _, Inf => Inf
+  | Frac p, Frac q => Qred (p * q)
+  end.
+
+Global Instance : Star frac := λ x,
+  match x with
+  | Frac ((Qmake (Zpos m) n) as p) =>
+    if Pos.eqb m n then Inf else Qred (Qinv (1 - p))
+  | Frac p => Qred (Qinv (1 - p))
+  | Inf => Inf
+  end.
+
+Global Instance : Assoc (≡) add. Admitted.
+Global Instance : LeftId (≡) 0 add. Admitted.
+Global Instance : RightId (≡) 0 add. Admitted.
+Global Instance : Comm (≡) add. Admitted.
+Global Instance : Assoc (≡) mul. Admitted.
+Global Instance : LeftId (≡) 1 mul. Admitted.
+Global Instance : RightId (≡) 1 mul. Admitted.
+Global Instance : Comm (≡) mul. Admitted.
+Global Instance : LeftAbsorb (≡) 0 mul. Admitted.
+Global Instance : RightAbsorb (≡) 0 mul. Admitted.
+Global Instance : LeftDistr (≡) mul add. Admitted.
+Global Instance : RightDistr (≡) mul add. Admitted.
+Global Instance : Star_Semiring frac. Admitted.
+
+End Compact.

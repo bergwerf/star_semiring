@@ -1,5 +1,7 @@
+From Coq Require Export QArith.
 From stdpp Require Export base list fin vector.
 
+Class Infinity (X : Type) := infinity : X.
 Class Zero (X : Type) := zero : X.
 Class One (X : Type) := one : X.
 Class Min (X : Type) := min : X -> X -> X.
@@ -10,6 +12,7 @@ Class Star (X : Type) := star : X -> X.
 Definition Σ {X} `{Add X, Zero X} : list X -> X := foldr add zero.
 Definition Π {X} `{Mul X, One X} : list X -> X := foldr mul one.
 
+Notation "∞" := (infinity).
 Notation "0" := (zero). 
 Notation "1" := (one).
 Notation "x + y" := (add x y) (left associativity,at level 50).
@@ -22,6 +25,12 @@ Class LeftDistr {X} (R : relation X) (f g : X -> X -> X) :=
 
 Class RightDistr {X} (R : relation X) (f g : X -> X -> X) :=
   right_distr x y a : R (f (g x y) a) (g (f x a) (f y a)).
+
+Class LeftCancel {X} (R : relation X) (f : X -> X -> X) :=
+  left_cancel a x y : R (f a x) (f a y) -> R x y.
+
+Class RightCancel {X} (R : relation X) (f : X -> X -> X) :=
+  right_cancel x y a : R (f x a) (f y a) -> R x y.
 
 Class Semigroup
   (X : Type) (R : relation X) (f : X -> X -> X) : Prop :=
