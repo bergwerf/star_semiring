@@ -34,7 +34,7 @@ Definition graph := mat_build
 (* The resulting regular expression represents *)
 (* _all_ possible paths from node A to node D. *)
 Example example_path_re :
-  (graph{*})@A@D = A~B⋅(B~C⋅((C~D∣C~E⋅E~D)⋅D~B))∗⋅(B~C⋅(C~D∣C~E⋅E~D)).
+  (graph{*})@A@D = A~B⋅((B~C⋅(C~D∣C~E⋅E~D)⋅D~B)∗⋅(B~C⋅(C~D∣C~E⋅E~D))).
 Proof. done. Qed.
 
 End Ex2.

@@ -201,9 +201,21 @@ End Inductive_construction.
 
 Section Warshall_Floyd_Kleene.
 
-Definition mat_plus_WFK {n} (a : sq n) : sq n :=
+Definition mat_plus_WFK {n} (a : sq n) (l : nat) : sq n :=
   let step k c i j := c@i@j + c@i@k * c@k@k{*} * c@k@j in
-  foldr (λ k b, mat_build (step k b)) a (vseq n).
+  foldl (λ b k, mat_build (step k b)) a (take l (vseq n)).
+
+Notation "a ⟨: l ⟩" := (vmap (vtake l) a)
+  (left associativity, at level 25, format "a ⟨: l ⟩").
+Notation "a ⟨ l :⟩" := (vtake l a)
+  (left associativity, at level 25, format "a ⟨ l :⟩").
+
+Theorem mat_plus_WFK_spec {n} (a : sq n) (l : fin n) :
+  mat_plus_WFK a l ≡ a + a⟨:l⟩ × mat_star_ind (a⟨l:⟩⟨:l⟩) × a⟨l:⟩.
+Proof.
+(* Proving this is difficult in Coq. *)
+(* See page 67 of \cite{Lehmann1977}. *)
+Admitted.
 
 End Warshall_Floyd_Kleene.
 
@@ -212,11 +224,14 @@ Section Matrix_star_semiring.
 Variable n : nat.
 Notation mat := (sq n).
 
-Global Instance : Star mat :=
-  λ a, 1 + mat_plus_WFK a.
+Global Instance : Star mat := mat_star_ind.
 
 Global Instance : Star_Semiring mat.
-Proof. split. c. Admitted.
+Proof.
+split. c.
+apply left_expand_mat_star_ind.
+apply right_expand_mat_star_ind.
+Qed.
 
 End Matrix_star_semiring.
 
