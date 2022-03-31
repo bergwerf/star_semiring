@@ -21,7 +21,7 @@ Proof. done. Qed.
 
 End Ex1.
 
-(*** This example show how to convert an ϵ-NFA to a regular expression. *)
+(*** This example show how to convert an ε-NFA to a regular expression. *)
 Module Ex2.
 
 Notation "'A'" := (0%fin). Notation "'B'" := (1%fin). Notation "'C'" := (2%fin).
@@ -35,6 +35,12 @@ Definition graph := mat_build
 (* _all_ possible paths from node A to node D. *)
 Example example_path_re :
   (graph{*})@A@D = A~B⋅((B~C⋅(C~D∣C~E⋅E~D)⋅D~B)∗⋅(B~C⋅(C~D∣C~E⋅E~D))).
+Proof. done. Qed.
+
+(* We can _first_ compute regular expressions, and *)
+(* then evaluate them in a *semiring such as bool. *)
+Example example_re_eval :
+  mat_map (re_eval bool) (mat_map (fmap (λ _, true)) graph{*}) = Ex1.adj{*}.
 Proof. done. Qed.
 
 End Ex2.

@@ -1,12 +1,29 @@
 From stars Require Import definitions.
 
-Inductive re {X} :=
+Inductive re (X : Type) :=
   | RE_None
   | RE_Empty
   | RE_Literal (x : X)
-  | RE_Or (a b : re)
-  | RE_Seq (a b : re)
-  | RE_Star (a : re).
+  | RE_Or (a b : re X)
+  | RE_Seq (a b : re X)
+  | RE_Star (a : re X).
+
+Arguments RE_None {_}.
+Arguments RE_Empty {_}.
+Arguments RE_Literal {_}.
+Arguments RE_Or {_}.
+Arguments RE_Seq {_}.
+Arguments RE_Star {_}.
+
+Global Instance : FMap re := λ X Y f, fix go (a : re X) :=
+  match a with
+  | RE_None => RE_None
+  | RE_Empty => RE_Empty
+  | RE_Literal x => RE_Literal (f x)
+  | RE_Or b c => RE_Or (go b) (go c)
+  | RE_Seq b c => RE_Seq (go b) (go c)
+  | RE_Star b => RE_Star (go b)
+  end.
 
 Notation "a ∣ b" := (RE_Or a b)
   (left associativity, at level 53, format "a ∣ b").
@@ -18,7 +35,7 @@ Notation "a ∗" := (RE_Star a)
 Section Regular_Expressions.
 
 Variable X : Type.
-Notation re := (@re X).
+Notation re := (re X).
 
 Fixpoint re_in (w : list X) (a : re) :=
   match a with
@@ -239,5 +256,21 @@ split. split. split. c. split. 1,3: split. 1,4: split. 1,3: c.
 - intros a b; expand; apply left_intro_re_star.
 - intros a b; expand; apply right_intro_re_star.
 Qed.
+
+Section Evaluation.
+
+Context `{Kleene_Algebra X}.
+
+Fixpoint re_eval (a : re) : X :=
+  match a with
+  | RE_None => 0
+  | RE_Empty => 1
+  | RE_Literal x => x
+  | RE_Or b c => re_eval b + re_eval c
+  | RE_Seq b c => re_eval b * re_eval c
+  | RE_Star b => (re_eval b){*}
+  end.
+
+End Evaluation.
 
 End Regular_Expressions.

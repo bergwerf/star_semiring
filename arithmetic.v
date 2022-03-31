@@ -13,7 +13,7 @@ Global Instance : Add bool := orb.
 Global Instance : Mul bool := andb.
 Global Instance : Star bool := λ _, 1.
 
-Global Instance : Star_Semiring bool.
+Global Instance : Kleene_Algebra bool.
 Proof. repeat split; repeat intros []; cbn; done. Qed.
 
 End Boolean.
@@ -34,6 +34,7 @@ Global Instance : LeftAbsorb (=) 0 min := Nat.min_0_l.
 Global Instance : RightAbsorb (=) 0 min := Nat.min_0_r.
 Global Instance : LeftDistr (=) add min. lift_distr Nat.add_min_distr_l. Qed.
 Global Instance : RightDistr (=) add min. lift_distr Nat.add_min_distr_r. Qed.
+Global Instance : IdemP (=) min := Nat.min_id.
 
 Global Instance : Assoc (=) add := Nat.add_assoc.
 Global Instance : LeftId (=) 0 add := Nat.add_0_l.
@@ -69,6 +70,7 @@ Global Instance : LeftAbsorb (=) 0 min := N.min_0_l.
 Global Instance : RightAbsorb (=) 0 min := N.min_0_r.
 Global Instance : LeftDistr (=) add min. lift_distr N.add_min_distr_l. Qed.
 Global Instance : RightDistr (=) add min. lift_distr N.add_min_distr_r. Qed.
+Global Instance : IdemP (=) min := N.min_id.
 
 Global Instance : Assoc (=) add := N.add_assoc.
 Global Instance : LeftId (=) 0 add := N.add_0_l.
@@ -98,6 +100,7 @@ Context `{Equiv X, Equivalence X (≡), Min X, Add X, Zero X}.
 Context `{Comm_Semigroup X (≡) min, Monoid X (≡) add 0}.
 Context `{LeftAbsorb X (≡) 0 min, RightAbsorb X (≡) 0 min}.
 Context `{LeftDistr X (≡) add min, RightDistr X (≡) add min}.
+Context `{IdemP X (≡) min}.
 
 Inductive trop := Tropical (x : X) | Infinity.
 
@@ -128,13 +131,15 @@ Global Instance : Mul trop :=
 Global Instance trop_star : Star trop :=
   λ _, 1.
 
-Global Instance : Star_Semiring trop.
+Global Instance : Kleene_Algebra trop.
 Proof.
 repeat split.
 4,9: intros [] [] A [] [] B; cbn in *; try done; rewrite A, B; done.
 all: repeat intros []; cbn; try done; f_equal. apply Equivalence_Transitive.
-apply assoc; c. apply comm; c. apply assoc; c.
-apply left_id; c. apply right_id; c.
+apply (assoc min). apply (comm min). apply (assoc add).
+apply (left_id 0 add). apply (right_id 0 add).
+1,2: rewrite (left_id 0 add); intros; apply (idemp min).
+1,2: rewrite (right_id 0 add); intros; apply (idemp min).
 Qed.
 
 End Tropical.
