@@ -14,3 +14,11 @@ matrices, while ATBR uses functions.
 [2]: https://doi.org/10.1016/0304-3975(77)90056-1
 [3]: https://gitlab.mpi-sws.org/iris/stdpp
 [4]: https://github.com/coq-community/atbr
+
+Matrix inversion
+----------------
+By implementing two matrix asteration algorithms, the inductive block
+construction and the Warshall-Floyd-Kleene algorithm, I discovered that not all
+algorithms give rise to a matrix inversion algorithm. Unless I made a mistake,
+it turns out that matrix inversion is _not_ a natural consequence of a solution
+to the *semering rules. More details are in the `examples.v` file.
