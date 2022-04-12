@@ -15,12 +15,17 @@ matrices, while ATBR uses functions.
 [3]: https://gitlab.mpi-sws.org/iris/stdpp
 [4]: https://github.com/coq-community/atbr
 
-Compact reals
--------------
-The compact reals as defined in [1] are _not_ a *semiring since they fail to
-satisfy the distributive law. Note that `(1 + -1) * ∞ ≠ 1 * ∞ + -1 * ∞`. I do
-not know a way to make it work, apart from restricting the distributive law tot
-the finite domain.
+Compact rationals
+-----------------
+The one-point compactification of rational numbers as defined in [1] is _not_ a
+*semiring since it fails to satisfy the distributive law. Consider the following
+counterexample:
+```
+(1 + -1) * ∞ ≠ 1 * ∞ + -1 * ∞
+```
+All other laws are satisfied, which is proven in `arithmetic.v`. I do not know a
+way to change the definitions such that the distributive law is also satisfied,
+except for restricting it to the finite domain.
 
 Matrix inversion
 ----------------
