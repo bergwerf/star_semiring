@@ -360,7 +360,7 @@ Global Instance : LeftDistr (≡) mul add.
 Proof.
 intros x y z; _unwrap; revert x y z.
 _intros; _reduce; cbn; try done; try apply Qmult_plus_distr_r.
-(* if x = ∞, y = 1, z = -1, then the equality fails. *)
+(* If x = ∞, y = 1, z = -1, then the equality fails. *)
 Admitted.
 
 Global Instance : RightDistr (≡) mul add.
