@@ -283,7 +283,7 @@ Ltac _intros := repeat (_intro || let H := fresh "H" in intro H).
 Local Lemma zero_frac i : 0 # i ≡ zero.
 Proof. apply Qreduce_zero. Qed.
 
-Lemma frac_simplify_id x : frac_simplify x ≡ x.
+Local Lemma frac_simplify_id x : frac_simplify x ≡ x.
 Proof. destruct x. apply Qred_correct. done. Qed.
 
 Local Lemma _red_0 x : frac_add Inf x = Inf. done. Qed.
@@ -298,11 +298,19 @@ Ltac _red_step := rewrite ?_red_0, ?_red_1, ?_red_2, ?_red_3, ?_red_4, ?_red_5.
 Ltac _reduce := rewrite ?zero_frac; repeat _red_step.
 Ltac _simpl := cbn in *; try done.
 
-Lemma frac_add_hom p q : Frac (p + q) ≡ Frac p + Frac q.
-Proof. _unwrap; done. Qed.
+Section Morphisms.
 
-Lemma frac_mul_hom p q : Frac (p * q) ≡ Frac p * Frac q.
-Proof. _unwrap; destruct p as [[] i], q as [[] j]; done. Qed.
+Lemma frac_add_hom p q : frac_add (Frac p) (Frac q) ≡ Frac (p + q)%Q.
+Proof. done. Qed.
+
+Lemma frac_mul_hom p q : frac_mul (Frac p) (Frac q) ≡ Frac (p * q)%Q.
+Proof. destruct p as [[] i], q as [[] j]; done. Qed.
+
+Lemma add_frac_hom p q : Frac p + Frac q ≡ Frac (p + q)%Q.
+Proof. _unwrap; apply frac_add_hom. Qed.
+
+Lemma mul_frac_hom p q : Frac p * Frac q ≡ Frac (p * q)%Q.
+Proof. _unwrap; apply frac_mul_hom. Qed.
 
 Global Instance : Proper ((≡) ==> (≡)) Frac.
 Proof. intros x y H; done. Qed.
@@ -337,6 +345,9 @@ destruct (p =? i)%positive eqn:E.
   cbn; rewrite H; done.
 Qed.
 
+End Morphisms.
+
+Ltac _transfer := repeat (rewrite ?frac_add_hom, ?frac_mul_hom).
 Ltac lift_Qplus H := repeat intros []; _unwrap; _reduce; try done; apply H.
 Ltac lift_Qmult H := _intros; _unwrap; _reduce; try done; apply H.
 
@@ -359,11 +370,15 @@ Qed.
 Global Instance : LeftDistr (≡) mul add.
 Proof.
 intros x y z; _unwrap; revert x y z.
-_intros; _reduce; cbn; try done; try apply Qmult_plus_distr_r.
+_intros; _reduce; _transfer; try done; try apply Qmult_plus_distr_r.
 (* If x = ∞, y = 1, z = -1, then the equality fails. *)
 Admitted.
 
 Global Instance : RightDistr (≡) mul add.
+Proof.
+intros x y z; _unwrap; revert x y z.
+_intros; _reduce; _transfer; try done; try apply Qmult_plus_distr_l.
+(* If x = 1, y = -1, z = ∞, then the equality fails. *)
 Admitted.
 
 Lemma star_frac_neq_1 q :
@@ -394,7 +409,7 @@ all: intros []. 2,4: done.
 all: destruct (decide (Frac q ≡ 1)) as [->|Hq]. 1,3: done.
 all: rewrite (star_frac_neq_1 _ Hq). 2: rewrite (comm mul).
 all: rewrite (expand_star_frac _ Hq) at 1.
-all: rewrite frac_add_hom, frac_mul_hom; done.
+all: rewrite <-add_frac_hom, <-mul_frac_hom; done.
 Qed.
 
 End Compact.
