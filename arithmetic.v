@@ -131,13 +131,13 @@ Global Instance : Mul Q := Qmult.
 
 Global Instance : RelDecision Qeq := Qeq_dec.
 Global Instance : Assoc (≡) add := Qplus_assoc.
+Global Instance : Assoc (≡) mul := Qmult_assoc.
+Global Instance : Comm (≡) add := Qplus_comm.
+Global Instance : Comm (≡) mul := Qmult_comm.
 Global Instance : LeftId (≡) 0 add := Qplus_0_l.
 Global Instance : RightId (≡) 0 add := Qplus_0_r.
-Global Instance : Comm (≡) add := Qplus_comm.
-Global Instance : Assoc (≡) mul := Qmult_assoc.
 Global Instance : LeftId (≡) 1 mul := Qmult_1_l.
 Global Instance : RightId (≡) 1 mul := Qmult_1_r.
-Global Instance : Comm (≡) mul := Qmult_comm.
 Global Instance : LeftAbsorb (≡) 0 mul := Qmult_0_l.
 Global Instance : RightAbsorb (≡) 0 mul := Qmult_0_r.
 Global Instance : LeftDistr (≡) mul add := Qmult_plus_distr_r.
@@ -247,18 +247,89 @@ Global Instance : Star frac := λ x,
   | Inf => Inf
   end.
 
-Global Instance : Assoc (≡) add. Admitted.
-Global Instance : LeftId (≡) 0 add. Admitted.
-Global Instance : RightId (≡) 0 add. Admitted.
-Global Instance : Comm (≡) add. Admitted.
+Global Instance : Equivalence (≡).
+Proof.
+split.
+- intros []; done.
+- intros [] [] H; done.
+- intros [] [] [] H H'; try done; cbn; trans q0; done.
+Qed.
+
+Global Instance : RelDecision (≡).
+Proof.
+intros [p|] [q|]. apply (decide (p ≡ q)).
+1,2: right; intro H; done. left; done.
+Qed.
+
+Local Ltac intro_Q := let i := fresh "i" in intros [[[] i]|].
+Local Ltac intros_Q := repeat (intro_Q || let H := fresh "H" in intro H).
+Local Ltac reduce_Q := cbn in *; try done; rewrite ?Qred_correct.
+
+Lemma frac_add_hom p q : Frac (p + q) ≡ Frac p + Frac q.
+Proof. cbn; rewrite Qred_correct. done. Qed.
+
+Lemma frac_mul_hom p q : Frac (p * q) ≡ Frac p * Frac q.
+Proof. destruct p as [[] i], q as [[] j]; reduce_Q; unfold Qeq; done. Qed.
+
+Global Instance : Proper ((≡) ==> (≡)) Frac.
+Proof. intros p q H; done. Qed.
+
+Global Instance : Proper ((≡) ==> (≡) ==> (≡)) add.
+Proof. intros [] [] H1 [] [] H2; reduce_Q; apply Qplus_comp; done. Qed.
+
+Global Instance : Proper ((≡) ==> (≡) ==> (≡)) mul.
+Proof. intros_Q; reduce_Q; apply Qmult_comp; done. Qed.
+
+Global Instance : Proper ((≡) ==> (≡)) star.
+Proof.
+intros_Q; reduce_Q; try (rewrite H; done).
+destruct (p =? i)%positive eqn:E.
+- apply Pos.eqb_eq in E; subst. unfold Qeq in H; cbn in H.
+  rewrite Z.mul_comm in H; apply Z.mul_cancel_r, Zpos_eq_iff in H; subst.
+  rewrite Pos.eqb_refl; done. done.
+- apply Pos.eqb_neq in E; destruct (p0 =? i0)%positive eqn:E0.
+  apply Pos.eqb_eq in E0; subst. unfold Qeq in H; cbn in H.
+  rewrite Z.mul_comm in H; apply Z.mul_cancel_l, Zpos_eq_iff in H; subst; done.
+  cbn; rewrite H; done.
+Qed.
+
+Local Ltac lift_Qplus H := repeat intros []; reduce_Q; apply H.
+Local Ltac lift_Qmult H := intros_Q; reduce_Q; apply H.
+
+Global Instance : Assoc (≡) add. lift_Qplus Qplus_assoc. Qed.
 Global Instance : Assoc (≡) mul. Admitted.
-Global Instance : LeftId (≡) 1 mul. Admitted.
-Global Instance : RightId (≡) 1 mul. Admitted.
-Global Instance : Comm (≡) mul. Admitted.
-Global Instance : LeftAbsorb (≡) 0 mul. Admitted.
-Global Instance : RightAbsorb (≡) 0 mul. Admitted.
+Global Instance : Comm (≡) add. lift_Qplus Qplus_comm. Qed.
+Global Instance : Comm (≡) mul. lift_Qmult Qmult_comm. Qed.
+Global Instance : LeftId (≡) 0 add. lift_Qplus Qplus_0_l. Qed.
+Global Instance : RightId (≡) 0 add. lift_Qplus Qplus_0_r. Qed.
+Global Instance : LeftId (≡) 1 mul. lift_Qmult Qmult_1_l. Qed.
+Global Instance : RightId (≡) 1 mul. lift_Qmult Qmult_1_r. Qed.
+Global Instance : LeftAbsorb (≡) 0 mul. lift_Qmult Qmult_0_l. Qed.
+Global Instance : RightAbsorb (≡) 0 mul. lift_Qmult Qmult_0_r. Qed.
 Global Instance : LeftDistr (≡) mul add. Admitted.
 Global Instance : RightDistr (≡) mul add. Admitted.
-Global Instance : Star_Semiring frac. Admitted.
+
+Lemma star_frac_neq_1 q :
+  Frac q ≢ 1 -> (Frac q){*} ≡ /(1 - q).
+Proof.
+destruct q as [[] i]; intros; reduce_Q; try done.
+destruct (p =? i)%positive eqn:E. 2: apply Qred_correct.
+exfalso; apply H; apply Pos.eqb_eq in E; subst.
+unfold Qeq; cbn; apply Z.mul_comm.
+Qed.
+
+Lemma expand_star_frac q :
+  / (1 - q) ≡ 1 + q * / (1 - q).
+Proof.
+Admitted.
+
+Global Instance : Star_Semiring frac.
+Proof.
+repeat split; try c.
+all: intros []. 2,4: done.
+all: destruct (decide (Frac q ≡ 1)) as [->|Hq]. 1,3: done.
+all: rewrite (star_frac_neq_1 _ Hq). 2: rewrite (comm mul).
+all: rewrite expand_star_frac at 1; rewrite frac_add_hom, frac_mul_hom; done.
+Qed.
 
 End Compact.
