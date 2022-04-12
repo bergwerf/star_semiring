@@ -223,27 +223,36 @@ Global Instance : Infinity frac := Inf.
 Global Instance : Zero frac := 0%Z.
 Global Instance : One frac := 1%Z.
 
-Global Instance : Add frac := λ x y,
-  match x, y with
-  | Inf, _ => Inf
-  | _, Inf => Inf
-  | Frac p, Frac q => Qred (p + q)
+Definition frac_simplify (x : frac) :=
+  match x with
+  | Inf => Inf
+  | Frac p => Frac (Qred p)
   end.
 
-Global Instance : Mul frac := λ x y,
+Definition frac_add (x y : frac) : frac :=
   match x, y with
-  | Frac (Qmake Z0 _), _ => 0
-  | _, Frac (Qmake Z0 _) => 0
   | Inf, _ => Inf
   | _, Inf => Inf
-  | Frac p, Frac q => Qred (p * q)
+  | Frac p, Frac q => (p + q)%Q
   end.
+
+Definition frac_mul (x y : frac) : frac :=
+  match x, y with
+  | Frac (0 # _), Inf => 0
+  | Inf, Frac (0 # _) => 0
+  | Inf, _ => Inf
+  | _, Inf => Inf
+  | Frac p, Frac q => (p * q)%Q
+  end.
+
+Global Instance add_frac : Add frac := λ x y, frac_simplify (frac_add x y).
+Global Instance mul_frac : Mul frac := λ x y, frac_simplify (frac_mul x y).
 
 Global Instance : Star frac := λ x,
   match x with
-  | Frac ((Qmake (Zpos m) n) as p) =>
-    if Pos.eqb m n then Inf else Qred (Qinv (1 - p))
-  | Frac p => Qred (Qinv (1 - p))
+  | Frac ((Z.pos m # n) as p) =>
+    if Pos.eqb m n then Inf else Qred (/(1 - p))
+  | Frac p => Qred (/(1 - p))
   | Inf => Inf
   end.
 
@@ -261,28 +270,63 @@ intros [p|] [q|]. apply (decide (p ≡ q)).
 1,2: right; intro H; done. left; done.
 Qed.
 
-Local Ltac intro_Q := let i := fresh "i" in intros [[[] i]|].
-Local Ltac intros_Q := repeat (intro_Q || let H := fresh "H" in intro H).
-Local Ltac reduce_Q := cbn in *; try done; rewrite ?Qred_correct.
+(***
+The general proof strategy is as follows:
+1. [_intros] Destruct frac values (Inf, 0, positive and negative rationals).
+2. [_unwrap] Unfold add and mul, and remove frac_simplify.
+3. [_reduce, _simpl] Rewrite with Inf reductions, or evaluate the term.
+*)
+
+Ltac _intro := let i := fresh "i" in intros [[[] i]|].
+Ltac _intros := repeat (_intro || let H := fresh "H" in intro H).
+
+Local Lemma zero_frac i : 0 # i ≡ zero.
+Proof. apply Qreduce_zero. Qed.
+
+Lemma frac_simplify_id x : frac_simplify x ≡ x.
+Proof. destruct x. apply Qred_correct. done. Qed.
+
+Local Lemma _red_0 x : frac_add Inf x = Inf. done. Qed.
+Local Lemma _red_1 x : frac_add x Inf = Inf. revert x; _intro; done. Qed.
+Local Lemma _red_2 i j : frac_mul Inf (Z.pos i # j) = Inf. done. Qed.
+Local Lemma _red_3 i j : frac_mul Inf (Z.neg i # j) = Inf. done. Qed.
+Local Lemma _red_4 i j : frac_mul (Z.pos i # j) Inf = Inf. done. Qed.
+Local Lemma _red_5 i j : frac_mul (Z.neg i # j) Inf = Inf. done. Qed.
+
+Ltac _unwrap := unfold add, add_frac, mul, mul_frac; rewrite ?frac_simplify_id.
+Ltac _red_step := rewrite ?_red_0, ?_red_1, ?_red_2, ?_red_3, ?_red_4, ?_red_5.
+Ltac _reduce := rewrite ?zero_frac; repeat _red_step.
+Ltac _simpl := cbn in *; try done.
 
 Lemma frac_add_hom p q : Frac (p + q) ≡ Frac p + Frac q.
-Proof. cbn; rewrite Qred_correct; done. Qed.
+Proof. _unwrap; done. Qed.
 
 Lemma frac_mul_hom p q : Frac (p * q) ≡ Frac p * Frac q.
-Proof. destruct p as [[] i], q as [[] j]; reduce_Q; unfold Qeq; done. Qed.
+Proof. _unwrap; destruct p as [[] i], q as [[] j]; done. Qed.
 
 Global Instance : Proper ((≡) ==> (≡)) Frac.
-Proof. intros p q H; done. Qed.
+Proof. intros x y H; done. Qed.
+
+Global Instance proper_frac_simplify : Proper ((≡) ==> (≡)) frac_simplify.
+Proof. intros x y H; rewrite ?frac_simplify_id; done. Qed.
+
+Global Instance proper_frac_add : Proper ((≡) ==> (≡) ==> (≡)) frac_add.
+Proof. _intros; _simpl; apply Qplus_comp; done. Qed.
+
+Global Instance proper_frac_mul : Proper ((≡) ==> (≡) ==> (≡)) frac_mul.
+Proof. _intros; _simpl; apply Qmult_comp; done. Qed.
+
+Ltac lift_proper H := repeat intros ?; apply proper_frac_simplify, H; done. 
 
 Global Instance : Proper ((≡) ==> (≡) ==> (≡)) add.
-Proof. intros [] [] H1 [] [] H2; reduce_Q; apply Qplus_comp; done. Qed.
+Proof. lift_proper proper_frac_add. Qed.
 
 Global Instance : Proper ((≡) ==> (≡) ==> (≡)) mul.
-Proof. intros_Q; reduce_Q; apply Qmult_comp; done. Qed.
+Proof. lift_proper proper_frac_mul. Qed.
 
 Global Instance : Proper ((≡) ==> (≡)) star.
 Proof.
-intros_Q; reduce_Q; try (rewrite H; done).
+_intros; _simpl; try (rewrite H; done).
 destruct (p =? i)%positive eqn:E.
 - apply Pos.eqb_eq in E; subst. unfold Qeq in H; cbn in H.
   rewrite Z.mul_comm in H; apply Z.mul_cancel_r, Zpos_eq_iff in H; subst.
@@ -293,11 +337,10 @@ destruct (p =? i)%positive eqn:E.
   cbn; rewrite H; done.
 Qed.
 
-Local Ltac lift_Qplus H := repeat intros []; reduce_Q; apply H.
-Local Ltac lift_Qmult H := intros_Q; reduce_Q; apply H.
+Ltac lift_Qplus H := repeat intros []; _unwrap; _reduce; try done; apply H.
+Ltac lift_Qmult H := _intros; _unwrap; _reduce; try done; apply H.
 
 Global Instance : Assoc (≡) add. lift_Qplus Qplus_assoc. Qed.
-Global Instance : Assoc (≡) mul. Admitted.
 Global Instance : Comm (≡) add. lift_Qplus Qplus_comm. Qed.
 Global Instance : Comm (≡) mul. lift_Qmult Qmult_comm. Qed.
 Global Instance : LeftId (≡) 0 add. lift_Qplus Qplus_0_l. Qed.
@@ -306,13 +349,27 @@ Global Instance : LeftId (≡) 1 mul. lift_Qmult Qmult_1_l. Qed.
 Global Instance : RightId (≡) 1 mul. lift_Qmult Qmult_1_r. Qed.
 Global Instance : LeftAbsorb (≡) 0 mul. lift_Qmult Qmult_0_l. Qed.
 Global Instance : RightAbsorb (≡) 0 mul. lift_Qmult Qmult_0_r. Qed.
-Global Instance : LeftDistr (≡) mul add. Admitted.
-Global Instance : RightDistr (≡) mul add. Admitted.
+
+Global Instance : Assoc (≡) mul.
+Proof.
+intros x y z; _unwrap; revert x y z.
+_intros; _reduce; try done; apply Qmult_assoc.
+Qed.
+
+Global Instance : LeftDistr (≡) mul add.
+Proof.
+intros x y z; _unwrap; revert x y z.
+_intros; _reduce; cbn; try done; try apply Qmult_plus_distr_r.
+(* if x = ∞, y = 1, z = -1, then the equality fails. *)
+Admitted.
+
+Global Instance : RightDistr (≡) mul add.
+Admitted.
 
 Lemma star_frac_neq_1 q :
   Frac q ≢ 1 -> (Frac q){*} ≡ /(1 - q).
 Proof.
-destruct q as [[] i]; intros; reduce_Q; try done.
+destruct q as [[] i]; intros; _simpl; try apply Qred_correct.
 destruct (p =? i)%positive eqn:E. 2: apply Qred_correct.
 exfalso; apply H; apply Pos.eqb_eq in E; subst.
 unfold Qeq; cbn; apply Z.mul_comm.

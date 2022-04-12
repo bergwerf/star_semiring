@@ -15,6 +15,13 @@ matrices, while ATBR uses functions.
 [3]: https://gitlab.mpi-sws.org/iris/stdpp
 [4]: https://github.com/coq-community/atbr
 
+Compact reals
+-------------
+The compact reals as defined in [1] are _not_ a *semiring since they fail to
+satisfy the distributive law. Note that `(1 + -1) * ∞ ≠ 1 * ∞ + -1 * ∞`. I do
+not know a way to make it work, apart from restricting the distributive law tot
+the finite domain.
+
 Matrix inversion
 ----------------
 By implementing two matrix asteration algorithms, the inductive block
