@@ -266,7 +266,7 @@ Local Ltac intros_Q := repeat (intro_Q || let H := fresh "H" in intro H).
 Local Ltac reduce_Q := cbn in *; try done; rewrite ?Qred_correct.
 
 Lemma frac_add_hom p q : Frac (p + q) ≡ Frac p + Frac q.
-Proof. cbn; rewrite Qred_correct. done. Qed.
+Proof. cbn; rewrite Qred_correct; done. Qed.
 
 Lemma frac_mul_hom p q : Frac (p * q) ≡ Frac p * Frac q.
 Proof. destruct p as [[] i], q as [[] j]; reduce_Q; unfold Qeq; done. Qed.
@@ -319,9 +319,16 @@ unfold Qeq; cbn; apply Z.mul_comm.
 Qed.
 
 Lemma expand_star_frac q :
-  / (1 - q) ≡ 1 + q * / (1 - q).
+  ¬ q == 1 -> / (1 - q) == 1 + q * / (1 - q).
 Proof.
-Admitted.
+intros Hq; rewrite <-Qmult_inv_r with (x:=(1 - q)%Q) at 2.
+- rewrite <-Qmult_plus_distr_l; unfold Qminus at 2.
+  rewrite <-Qplus_assoc, (Qplus_comm _ q).
+  rewrite Qplus_opp_r, Qplus_0_r, Qmult_1_l; done.
+- intros Hq'; apply Hq; unfold Qminus in Hq'.
+  symmetry; rewrite <-Qplus_0_r, <-Qplus_opp_r with (q:=q).
+  rewrite (Qplus_comm q), Qplus_assoc, Hq', Qplus_0_l; done.
+Qed.
 
 Global Instance : Star_Semiring frac.
 Proof.
@@ -329,7 +336,8 @@ repeat split; try c.
 all: intros []. 2,4: done.
 all: destruct (decide (Frac q ≡ 1)) as [->|Hq]. 1,3: done.
 all: rewrite (star_frac_neq_1 _ Hq). 2: rewrite (comm mul).
-all: rewrite expand_star_frac at 1; rewrite frac_add_hom, frac_mul_hom; done.
+all: rewrite (expand_star_frac _ Hq) at 1.
+all: rewrite frac_add_hom, frac_mul_hom; done.
 Qed.
 
 End Compact.
