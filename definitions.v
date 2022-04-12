@@ -1,10 +1,12 @@
 From Coq Require Export QArith.
 From stdpp Require Export base list fin vector.
 
-Class Infinity (X : Type) := infinity : X.
 Class Zero (X : Type) := zero : X.
 Class One (X : Type) := one : X.
-Class Min (X : Type) := min : X -> X -> X.
+Class Infinity (X : Type) := infinity : X.
+
+Class Join (X : Type) := join : X -> X -> X.
+Class Meet (X : Type) := meet : X -> X -> X.
 Class Add (X : Type) := add : X -> X -> X.
 Class Mul (X : Type) := mul : X -> X -> X.
 Class Star (X : Type) := star : X -> X.
@@ -13,8 +15,11 @@ Definition Σ {X} `{Add X, Zero X} : list X -> X := foldr add zero.
 Definition Π {X} `{Mul X, One X} : list X -> X := foldr mul one.
 
 Notation "∞" := (infinity).
-Notation "0" := (zero). 
+Notation "0" := (zero).
 Notation "1" := (one).
+
+Notation "x ∨ y" := (join x y).
+Notation "x ∧ y" := (meet x y).
 Notation "x + y" := (add x y) (left associativity,at level 50).
 Notation "x * y" := (mul x y) (left associativity,at level 40).
 Notation "x '{*}'":= (star x) (left associativity,at level 31,format "x '{*}'").
@@ -32,6 +37,9 @@ Class LeftCancel {X} (R : relation X) (f : X -> X -> X) :=
 Class RightCancel {X} (R : relation X) (f : X -> X -> X) :=
   right_cancel x y a : R (f x a) (f y a) -> R x y.
 
+Class Absorb {X} (R : relation X) (f g : X -> X -> X) :=
+  absorb a b : R (f a (g a b)) a.
+
 Class Semigroup
   (X : Type) (R : relation X) (f : X -> X -> X) : Prop :=
 {
@@ -44,6 +52,22 @@ Class Comm_Semigroup
 {
   Comm_Semigroup_Semigroup      :> Semigroup X R f;
   Comm_Semigroup_Comm           :> Comm R f;
+}.
+
+Class Semilattice
+  (X : Type) (R : relation X) (f : X -> X -> X) : Prop :=
+{
+  Semilattice_Comm_Semigroup    :> Comm_Semigroup X R f;
+  Semilattice_IdemP             :> @IdemP X R f;
+}.
+
+Class Lattice
+  (X : Type) `{_equiv : Equiv X, _join : Join X, _meet : Meet X} : Prop :=
+{
+  Join_Semilattice              :> Semilattice X (≡) join;
+  Meet_Semilattice              :> Semilattice X (≡) meet;
+  Lattice_Absorb_join           :> @Absorb X (≡) join meet;
+  Lattice_Absorb_meet           :> @Absorb X (≡) meet join;
 }.
 
 Class Monoid

@@ -24,32 +24,46 @@ Section Natural.
 Global Instance : Equiv nat := eq.
 Global Instance : Zero nat := 0%nat.
 Global Instance : One nat := 1%nat.
-Global Instance : Min nat := Nat.min.
+Global Instance : Join nat := Nat.max.
+Global Instance : Meet nat := Nat.min.
 Global Instance : Add nat := Nat.add.
 Global Instance : Mul nat := Nat.mul.
 
+Global Instance : Assoc (=) max := Nat.max_assoc.
 Global Instance : Assoc (=) min := Nat.min_assoc.
-Global Instance : Comm (=) min := Nat.min_comm.
-Global Instance : LeftAbsorb (=) 0 min := Nat.min_0_l.
-Global Instance : RightAbsorb (=) 0 min := Nat.min_0_r.
-Global Instance : LeftDistr (=) add min. lift_distr Nat.add_min_distr_l. Qed.
-Global Instance : RightDistr (=) add min. lift_distr Nat.add_min_distr_r. Qed.
-Global Instance : IdemP (=) min := Nat.min_id.
-
 Global Instance : Assoc (=) add := Nat.add_assoc.
+Global Instance : Assoc (=) mul := Nat.mul_assoc.
+
+Global Instance : Comm (=) max := Nat.max_comm.
+Global Instance : Comm (=) min := Nat.min_comm.
+Global Instance : Comm (=) add := Nat.add_comm.
+Global Instance : Comm (=) mul := Nat.mul_comm.
+
+Global Instance : IdemP (=) max := Nat.max_id.
+Global Instance : IdemP (=) min := Nat.min_id.
+Global Instance : Absorb (=) max min := Nat.min_max_absorption.
+Global Instance : Absorb (=) min max := Nat.max_min_absorption.
+
+Global Instance : LeftId (=) 0 max := Nat.max_0_l.
+Global Instance : RightId (=) 0 max := Nat.max_0_r.
 Global Instance : LeftId (=) 0 add := Nat.add_0_l.
 Global Instance : RightId (=) 0 add := Nat.add_0_r.
-Global Instance : Comm (=) add := Nat.add_comm.
-Global Instance : Assoc (=) mul := Nat.mul_assoc.
 Global Instance : LeftId (=) 1 mul := Nat.mul_1_l.
 Global Instance : RightId (=) 1 mul := Nat.mul_1_r.
-Global Instance : Comm (=) mul := Nat.mul_comm.
+
+Global Instance : LeftAbsorb (=) 0 min := Nat.min_0_l.
+Global Instance : RightAbsorb (=) 0 min := Nat.min_0_r.
 Global Instance : LeftAbsorb (=) 0 mul := Nat.mul_0_l.
 Global Instance : RightAbsorb (=) 0 mul := Nat.mul_0_r.
+
 Global Instance : LeftDistr (=) mul add := Nat.mul_add_distr_l.
 Global Instance : RightDistr (=) mul add := Nat.mul_add_distr_r.
+Global Instance : LeftDistr (=) add min. lift_distr Nat.add_min_distr_l. Qed.
+Global Instance : RightDistr (=) add min. lift_distr Nat.add_min_distr_r. Qed.
+Global Instance : LeftDistr (=) add min. lift_distr Nat.add_min_distr_l. Qed.
+Global Instance : RightDistr (=) add min. lift_distr Nat.add_min_distr_r. Qed.
 
-Global Instance : Comm_Semigroup nat (=) min. auto_resolve. Qed.
+Global Instance : Lattice nat. auto_resolve. Qed.
 Global Instance : Semiring nat. auto_resolve. Qed.
 
 End Natural.
@@ -60,32 +74,46 @@ Section Positive.
 Global Instance : Equiv N := eq.
 Global Instance : Zero N := 0%N.
 Global Instance : One N := 1%N.
-Global Instance : Min N := N.min.
+Global Instance : Join N := N.max.
+Global Instance : Meet N := N.min.
 Global Instance : Add N := N.add.
 Global Instance : Mul N := N.mul.
 
-Global Instance : Assoc (=) min := N.min_assoc.
-Global Instance : Comm (=) min := N.min_comm.
-Global Instance : LeftAbsorb (=) 0 min := N.min_0_l.
-Global Instance : RightAbsorb (=) 0 min := N.min_0_r.
-Global Instance : LeftDistr (=) add min. lift_distr N.add_min_distr_l. Qed.
-Global Instance : RightDistr (=) add min. lift_distr N.add_min_distr_r. Qed.
-Global Instance : IdemP (=) min := N.min_id.
-
+Global Instance : Assoc (=) join := N.max_assoc.
+Global Instance : Assoc (=) meet := N.min_assoc.
 Global Instance : Assoc (=) add := N.add_assoc.
+Global Instance : Assoc (=) mul := N.mul_assoc.
+
+Global Instance : Comm (=) join := N.max_comm.
+Global Instance : Comm (=) meet := N.min_comm.
+Global Instance : Comm (=) add := N.add_comm.
+Global Instance : Comm (=) mul := N.mul_comm.
+
+Global Instance : IdemP (=) join := N.max_id.
+Global Instance : IdemP (=) meet := N.min_id.
+Global Instance : Absorb (=) join meet := N.min_max_absorption.
+Global Instance : Absorb (=) meet join := N.max_min_absorption.
+
+Global Instance : LeftId (=) 0 join := N.max_0_l.
+Global Instance : RightId (=) 0 join := N.max_0_r.
 Global Instance : LeftId (=) 0 add := N.add_0_l.
 Global Instance : RightId (=) 0 add := N.add_0_r.
-Global Instance : Comm (=) add := N.add_comm.
-Global Instance : Assoc (=) mul := N.mul_assoc.
 Global Instance : LeftId (=) 1 mul := N.mul_1_l.
 Global Instance : RightId (=) 1 mul := N.mul_1_r.
-Global Instance : Comm (=) mul := N.mul_comm.
+
+Global Instance : LeftAbsorb (=) 0 meet := N.min_0_l.
+Global Instance : RightAbsorb (=) 0 meet := N.min_0_r.
 Global Instance : LeftAbsorb (=) 0 mul := N.mul_0_l.
 Global Instance : RightAbsorb (=) 0 mul := N.mul_0_r.
+
 Global Instance : LeftDistr (=) mul add := N.mul_add_distr_l.
 Global Instance : RightDistr (=) mul add := N.mul_add_distr_r.
+Global Instance : LeftDistr (=) add meet. lift_distr N.add_min_distr_l. Qed.
+Global Instance : RightDistr (=) add meet. lift_distr N.add_min_distr_r. Qed.
+Global Instance : LeftDistr (=) add meet. lift_distr N.add_min_distr_l. Qed.
+Global Instance : RightDistr (=) add meet. lift_distr N.add_min_distr_r. Qed.
 
-Global Instance : Comm_Semigroup N (=) min. auto_resolve. Qed.
+Global Instance : Lattice N. auto_resolve. Qed.
 Global Instance : Semiring N. auto_resolve. Qed.
 
 End Positive.
@@ -124,11 +152,10 @@ End Rational.
 Section Tropical.
 
 Variable X : Type.
-Context `{Equiv X, Equivalence X (≡), Min X, Add X, Zero X}.
-Context `{Comm_Semigroup X (≡) min, Monoid X (≡) add 0}.
-Context `{LeftAbsorb X (≡) 0 min, RightAbsorb X (≡) 0 min}.
-Context `{LeftDistr X (≡) add min, RightDistr X (≡) add min}.
-Context `{IdemP X (≡) min}.
+Context `{Equiv X, Equivalence X (≡), Meet X, Add X, Zero X}.
+Context `{Semilattice X (≡) meet, Monoid X (≡) add 0}.
+Context `{LeftAbsorb X (≡) 0 meet, RightAbsorb X (≡) 0 meet}.
+Context `{LeftDistr X (≡) add meet, RightDistr X (≡) add meet}.
 
 Inductive trop := Tropical (x : X) | TInfinity.
 
@@ -147,7 +174,7 @@ Global Instance : Add trop :=
   λ a b, match a, b with
   | TInfinity, _ => b
   | _, TInfinity => a
-  | Tropical x, Tropical y => Tropical (min x y)
+  | Tropical x, Tropical y => Tropical (x ∧ y)
   end.
 
 Global Instance : Mul trop :=
@@ -165,10 +192,10 @@ Proof.
 repeat split.
 4,9: intros [] [] A [] [] B; cbn in *; try done; rewrite A, B; done.
 all: repeat intros []; cbn; try done; f_equal. apply Equivalence_Transitive.
-apply (assoc min). apply (comm min). apply (assoc add).
-apply (left_id 0 add). apply (right_id 0 add).
-1,2: rewrite (left_id 0 add); intros; apply (idemp min).
-1,2: rewrite (right_id 0 add); intros; apply (idemp min).
+apply (assoc meet). apply (comm meet). apply (assoc add).
+apply (left_id 0 add). apply (right_id 0 add). apply (idemp meet).
+1,2: rewrite (left_id 0 add); intros; apply (idemp meet).
+1,2: rewrite (right_id 0 add); intros; apply (idemp meet).
 Qed.
 
 End Tropical.
