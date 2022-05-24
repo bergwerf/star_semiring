@@ -10,7 +10,7 @@ matrix asteration algorithm based on the inductive block construction. An
 important difference with the ATBR library is that we use vectors to represent
 matrices, while ATBR uses functions.
 
-[1]: http://r6.ca/blog/20110808X035622Z.html
+[1]: https://r6.ca/blog/20110808T035622Z.html
 [2]: https://doi.org/10.1016/0304-3975(77)90056-1
 [3]: https://gitlab.mpi-sws.org/iris/stdpp
 [4]: https://github.com/coq-community/atbr

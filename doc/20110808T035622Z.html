@@ -1,0 +1,771 @@
+<!DOCTYPE html PUBLIC "ISO/IEC 15445:2000//DTD HyperText Markup Language//EN">
+<html lang="EN-CA"><head profile="https://dublincore.org/documents/dcq-html/">
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<title>A Very General Method of Computing Shortest Paths</title>
+<link href="https://r6.ca/blog/20011216T223300Z.html" rel="First">
+<link href="https://r6.ca/blog/20210615T191422Z.html" rel="Last">
+<link href="https://r6.ca/blog/20110530T170250Z.html" rel="Prev">
+<link href="https://r6.ca/blog/20110930T012533Z.html" rel="Next">
+<link href="A%20Very%20General%20Method%20of%20Computing%20Shortest%20Paths_bestanden/blog.css" rel="Stylesheet" type="text/css">
+<link href="https://r6.ca/blog/" rel="toc">
+<link href="https://r6.ca/blog/feed.atom" rel="feed" type="application/atom+xml">
+<link href="https://purl.org/dc/elements/1.1/" rel="schema.DC">
+<link href="https://purl.org/dc/terms/" rel="schema.DCTERMS">
+<link title="Russell’s Email Address" href="mailto:%72%6f%63%6f%6e%6e%6f%72%40%74%68%65%6f%72%65%6d%2e%63%61" rev="Made">
+<link title="Russell O’Connor" href="https://r6.ca/" rel="Home">
+<link title="Public Domain" href="https://r6.ca/publicDomain.html" rel="Copyright" type="text/html">
+<meta content="Public Domain" name="DC.RIGHTS">
+</head>
+<body>
+<h1>A Very General Method of Computing Shortest Paths</h1>
+<div class="date">2011-08-08T03:56:22Z</div>
+<div class="content">
+
+
+<p>This post is a literate Haskell file.  To follow along, cut and paste the entire text of this post into a file called <samp>StarSemiring.lhs</samp> and load it up in GHCi.
+
+</p><pre>&gt; module StarSemiring where</pre>
+
+<p>I would like to introduce you to a very general algorithm that I like to call the <del datetime="20190505T011514Z">Gauss-Jordan-Floyd-Warshall-McNaughton-Yamada</del><ins datetime="20190505T011514Z">Gauss-Jordan-Floyd-Warshall-Kleene</ins>
+ algorithm.
+With this simple algorithm (an algorithm whose implementation is not 
+very much longer than its name) you can solve almost half of the 
+problems you might encounter in computer science.
+For instance, this algorithm will let you:</p><ul>
+<li>compute transitive closures</li>
+<li>compute shortest paths</li>
+<li>compute largest capacity paths</li>
+<li>compute most reliable paths</li>
+<li>compute the regular expression for a finite automaton</li>
+<li>solve linear equations</li>
+</ul>
+<p>This is all accomplished by working over an abstract mathematical structure called a *-semiring (read as "star-semiring").
+We will see many examples of a *-semirings in this post implemented in literate Haskell.
+
+</p><pre>&gt; import Data.Array
+&gt; import Data.Maybe
+&gt; import Data.List
+&gt; import Control.Applicative
+&gt; import Control.Monad
+&gt;
+&gt; infixl 6 &lt;+&gt;
+&gt; infixl 7 &lt;.&gt;</pre>
+
+<p>First we define a semiring as a commutative monoid and a monoid satisfying the usual distributive and absorption laws.
+
+</p><pre>&gt; {- Laws:
+&gt;    a &lt;+&gt; b = b &lt;+&gt; a
+&gt;    (a &lt;+&gt; b) &lt;+&gt; c = a &lt;+&gt; (b &lt;+&gt; c)
+&gt;    a &lt;+&gt; zero  = zero &lt;+&gt; a  = a
+&gt;    (a &lt;.&gt; b) &lt;.&gt; c = a &lt;.&gt; (b &lt;.&gt; c)
+&gt;    a &lt;.&gt; one  = one &lt;.&gt; a  = a
+&gt;    a &lt;.&gt; zero = zero &lt;.&gt; a = zero
+&gt;    a &lt;.&gt; (b &lt;+&gt; c) = a &lt;.&gt; b &lt;+&gt; a &lt;.&gt; c
+&gt;    (a &lt;+&gt; b) &lt;.&gt; c = a &lt;.&gt; c &lt;+&gt; b &lt;.&gt; c
+&gt; -}
+&gt; class Semiring a where
+&gt;   zero  :: a
+&gt;   (&lt;+&gt;) :: a -&gt; a -&gt; a
+&gt;   one   :: a
+&gt;   (&lt;.&gt;) :: a -&gt; a -&gt; a
+&gt;   srsum :: [a] -&gt; a
+&gt;   srsum = foldr (&lt;+&gt;) zero
+&gt;   srprod :: [a] -&gt; a
+&gt;   srprod = foldr (&lt;.&gt;) one</pre>
+
+<p>Next we add one more method <code>star</code> (read as "asteration") to create a *-semiring.
+
+</p><pre>&gt; {- Laws:
+&gt;    star a = one &lt;+&gt; a &lt;.&gt; star a = one &lt;+&gt; star a &lt;.&gt; a
+&gt; -}
+&gt; class Semiring a =&gt; StarSemiring a where
+&gt;   star :: a -&gt; a</pre>
+
+<p>A derived operation called "plus" can be defined in terms of star by <var>x</var><sup>+</sup>&nbsp;:=&nbsp;<var>x</var><var>x</var><sup>&#8727;</sup>.
+Actually the two operations are interdefinable because <var>x</var><sup>&#8727;</sup>&nbsp;=&nbsp;1&nbsp;+&nbsp;<var>x</var><sup>+</sup>.
+
+</p><pre>&gt;   star a = one &lt;+&gt; plus a
+&gt;   plus :: a -&gt; a
+&gt;   plus a = a &lt;.&gt; star a</pre>
+
+<p>Most of our examples of a *-semiring will be instances of a more specialized structure called a Kleene algebra.
+
+</p><pre>&gt; {- Laws:
+&gt;    a &lt;+&gt; a = a
+&gt;    a &lt;.&gt; x &lt;+&gt; x = x  ==&gt;  star a &lt;.&gt; x &lt;+&gt; x = x
+&gt;    x &lt;.&gt; a &lt;+&gt; x = x  ==&gt;  x &lt;.&gt; star a &lt;+&gt; x = x
+&gt; -}
+&gt; class StarSemiring a =&gt; KleeneAlgebra a where</pre>
+
+<p>The most important examples of a *-semirings for us will be matrix *-semirings.
+Let us make a quick type for square matrices indexed by <code>i</code>
+
+</p><pre>&gt; data Edge i = i :-&gt; i deriving (Eq, Ord, Bounded, Ix)
+&gt;
+&gt; newtype Matrix i e = Matrix (Array (Edge i) e)
+&gt;
+&gt; matrix :: (Ix i, Bounded i) =&gt; (Edge i -&gt; e) -&gt; Matrix i e
+&gt; matrix f = Matrix . listArray (minBound, maxBound) . map f $ entireRange</pre>
+
+<p>Our smart constructor <code>matrix</code> builds square matrix indexed over all elements of <code>i</code> from a given function <code>f</code>.
+
+</p><p>All of our matrices for a given index type are all the same size and thus <code>Matrix i</code> is an applicative functor.
+We postpone the obvious <code>Applicative</code> instances to the end as well as some pretty printing code.
+
+</p><p>All matrices over a *-semirings are themselves *-semirings.  The 
+additive operation for matrices simply lifts the additive operation from
+ the underlying *-semiring.
+
+</p><pre>&gt; instance (Ix i, Bounded i, Semiring a) =&gt;
+&gt;          Semiring (Matrix i a) where
+&gt;   zero = pure zero
+&gt;   (&lt;+&gt;) = liftA2 (&lt;+&gt;)</pre>
+
+<p>The multiplication operation for a *-semiring is the usual multiplication operation for matrices.
+
+</p><pre>&gt;   one = matrix (\(i :-&gt; j) -&gt; if i == j then one else zero)
+&gt;   Matrix x &lt;.&gt; Matrix y = matrix build
+&gt;    where
+&gt;     build (i :-&gt; j) = srsum [x!(i :-&gt; k) &lt;.&gt; y!(k :-&gt; j) | k &lt;- entireRange]</pre>
+
+<p>The final operation, <code>star</code>, is the heart of this post.
+The asteration operation solves the equation: <var>x</var><sup>&#8727;</sup>&nbsp;=&nbsp;1&nbsp;+&nbsp;<var>x</var><var>x</var><sup>&#8727;</sup>.
+Expending this recurrence equation out we see that asteration is a solution to the infinite series:
+<var>x</var><sup>&#8727;</sup>&nbsp;=&nbsp;1&nbsp;+&nbsp;<var>x</var>&nbsp;+&nbsp;<var>x</var><sup>2</sup>&nbsp;+&nbsp;….</p><p>Unfortunately we cannot just sum an infinite series, so instead we implement <code>plus</code> using the famous <del datetime="20190505T011514Z">Gauss-Jordan-Floyd-Warshall-McNaughton-Yamada</del><ins datetime="20190505T011514Z">Gauss-Jordan-Floyd-Warshall-Kleene</ins> algorithm.
+
+</p><pre>&gt; instance (Ix i, Bounded i, StarSemiring a) =&gt;
+&gt;          StarSemiring (Matrix i a) where
+&gt;   plus x = foldr f x entireRange
+&gt;    where
+&gt;     f k (Matrix m) = matrix build
+&gt;      where
+&gt;       build (i :-&gt; j) = m!(i :-&gt; j) &lt;+&gt;
+&gt;                         m!(i :-&gt; k) &lt;.&gt; star (m!(k :-&gt; k)) &lt;.&gt; m!(k :-&gt; j)</pre>
+
+<p>And we are done.  Well almost.  We will also note that matricies over a Kleene algebra is itself a Kleene algebra.
+
+</p><pre>&gt; instance (Ix i, Bounded i, KleeneAlgebra a) =&gt;
+&gt;          KleeneAlgebra (Matrix i a) where</pre>
+
+<p>Now, let us look at some applications of this algorithm.
+Our first example will be computing the reflexive-transitive closure of a directed graph.
+We will represent directed graph by its adjacency matrix.
+We build our own version of the Booleans called <code>Connection</code>
+
+</p><pre>&gt; data Connection = Connected | Unconnected deriving Eq
+&gt;
+&gt; type Graph i = Matrix i Connection
+&gt;
+&gt; graph :: (Ix i, Bounded i) =&gt; [Edge i] -&gt; Graph i
+&gt; graph edgeList = matrix build
+&gt;  where
+&gt;   build i | i `elem` edgeList = Connected
+&gt;           | otherwise         = Unconnected</pre>
+
+<p>We will give a small example of a directed graph over five nodes.
+
+</p><p><img alt="" src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiIHN0YW5kYWxvbmU9Im5vIj8+CjwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIKICJodHRwOi8vd3d3LnczLm9yZy9HcmFwaGljcy9TVkcvMS4xL0RURC9zdmcxMS5kdGQiPgo8IS0tIEdlbmVyYXRlZCBieSBncmFwaHZpeiB2ZXJzaW9uIDIuMjIuMiAoMjAwOTAzMTMuMTgxNykKIC0tPgo8IS0tIFRpdGxlOiB1bnRpdGxlZCBQYWdlczogMSAtLT4KPHN2ZyB3aWR0aD0iMjU0cHQiIGhlaWdodD0iMTMycHQiCiB2aWV3Qm94PSIwLjAwIDAuMDAgMjUzLjYyIDEzMi4zMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayI+CjxnIGlkPSJncmFwaDEiIGNsYXNzPSJncmFwaCIgdHJhbnNmb3JtPSJzY2FsZSgxIDEpIHJvdGF0ZSgwKSB0cmFuc2xhdGUoNCAxMjguMzAxKSI+Cjx0aXRsZT51bnRpdGxlZDwvdGl0bGU+CjwhLS0gQSAtLT4KPGcgaWQ9Im5vZGUxIiBjbGFzcz0ibm9kZSI+PHRpdGxlPkE8L3RpdGxlPgo8ZWxsaXBzZSBmaWxsPSJ3aGl0ZSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIyIiBjeD0iMjUiIGN5PSItMjUiIHJ4PSIyNC4wNDE2IiByeT0iMjQuMDQxNiIvPgo8dGV4dCB0ZXh0LWFuY2hvcj0ibWlkZGxlIiB4PSIyNSIgeT0iLTE4LjIiIGZvbnQtZmFtaWx5PSJCaXRzdHJlYW0gVmVyYSBTYW5zIiBmb250LXNpemU9IjIyLjAwIj5BPC90ZXh0Pgo8L2c+CjwhLS0gQiAtLT4KPGcgaWQ9Im5vZGUyIiBjbGFzcz0ibm9kZSI+PHRpdGxlPkI8L3RpdGxlPgo8ZWxsaXBzZSBmaWxsPSJ3aGl0ZSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIyIiBjeD0iOTUuNDI0OSIgY3k9Ii00NS43MjcyIiByeD0iMjQuMDQxNiIgcnk9IjI0LjA0MTYiLz4KPHRleHQgdGV4dC1hbmNob3I9Im1pZGRsZSIgeD0iOTUuNDI0OSIgeT0iLTM4LjkyNzIiIGZvbnQtZmFtaWx5PSJCaXRzdHJlYW0gVmVyYSBTYW5zIiBmb250LXNpemU9IjIyLjAwIj5CPC90ZXh0Pgo8L2c+CjwhLS0gQSYjNDU7Jmd0O0IgLS0+CjxnIGlkPSJlZGdlMiIgY2xhc3M9ImVkZ2UiPjx0aXRsZT5BJiM0NTsmZ3Q7QjwvdGl0bGU+CjxwYXRoIGZpbGw9Im5vbmUiIHN0cm9rZT0iYmxhY2siIHN0cm9rZS13aWR0aD0iMiIgZD0iTTQ4LjA1OTcsLTMxLjc4NjhDNTIuNjMyOSwtMzMuMTMyOCA1Ny41MTc3LC0zNC41NzA1IDYyLjM0ODcsLTM1Ljk5MjMiLz4KPHBvbHlnb24gZmlsbD0iYmxhY2siIHN0cm9rZT0iYmxhY2siIHBvaW50cz0iNjEuNDkwOSwtMzkuMzg4MiA3Mi4wNzIyLC0zOC44NTQxIDYzLjQ2NzMsLTMyLjY3MyA2MS40OTA5LC0zOS4zODgyIi8+CjwvZz4KPCEtLSBDIC0tPgo8ZyBpZD0ibm9kZTMiIGNsYXNzPSJub2RlIj48dGl0bGU+QzwvdGl0bGU+CjxlbGxpcHNlIGZpbGw9IndoaXRlIiBzdHJva2U9ImJsYWNrIiBzdHJva2Utd2lkdGg9IjIiIGN4PSIxNjguODI4IiBjeT0iLTMyLjk5NTMiIHJ4PSIyNC4wNDE2IiByeT0iMjQuMDQxNiIvPgo8dGV4dCB0ZXh0LWFuY2hvcj0ibWlkZGxlIiB4PSIxNjguODI4IiB5PSItMjYuMTk1MyIgZm9udC1mYW1pbHk9IkJpdHN0cmVhbSBWZXJhIFNhbnMiIGZvbnQtc2l6ZT0iMjIuMDAiPkM8L3RleHQ+CjwvZz4KPCEtLSBCJiM0NTsmZ3Q7QyAtLT4KPGcgaWQ9ImVkZ2UzIiBjbGFzcz0iZWRnZSI+PHRpdGxlPkImIzQ1OyZndDtDPC90aXRsZT4KPHBhdGggZmlsbD0ibm9uZSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIyIiBkPSJNMTE5LjQ2LC00MS41NTgzQzEyNC40NTQsLTQwLjY5MjEgMTI5LjgwNCwtMzkuNzY0IDEzNS4wNzMsLTM4Ljg1MDEiLz4KPHBvbHlnb24gZmlsbD0iYmxhY2siIHN0cm9rZT0iYmxhY2siIHBvaW50cz0iMTM1LjczNSwtNDIuMjg3NiAxNDQuOTksLTM3LjEzMDEgMTM0LjUzOSwtMzUuMzkwNiAxMzUuNzM1LC00Mi4yODc2Ii8+CjwvZz4KPCEtLSBEIC0tPgo8ZyBpZD0ibm9kZTQiIGNsYXNzPSJub2RlIj48dGl0bGU+RDwvdGl0bGU+CjxlbGxpcHNlIGZpbGw9IndoaXRlIiBzdHJva2U9ImJsYWNrIiBzdHJva2Utd2lkdGg9IjIiIGN4PSIxNDcuMzMzIiBjeT0iLTk5LjMwMDkiIHJ4PSIyNC4wNDE2IiByeT0iMjQuMDQxNiIvPgo8dGV4dCB0ZXh0LWFuY2hvcj0ibWlkZGxlIiB4PSIxNDcuMzMzIiB5PSItOTIuNTAwOSIgZm9udC1mYW1pbHk9IkJpdHN0cmVhbSBWZXJhIFNhbnMiIGZvbnQtc2l6ZT0iMjIuMDAiPkQ8L3RleHQ+CjwvZz4KPCEtLSBDJiM0NTsmZ3Q7RCAtLT4KPGcgaWQ9ImVkZ2U0IiBjbGFzcz0iZWRnZSI+PHRpdGxlPkMmIzQ1OyZndDtEPC90aXRsZT4KPHBhdGggZmlsbD0ibm9uZSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIyIiBkPSJNMTYxLjMxLC01Ni4xODU4QzE2MC4yMTIsLTU5LjU3NDggMTU5LjA2MywtNjMuMTE3IDE1Ny45MTgsLTY2LjY1MTYiLz4KPHBvbHlnb24gZmlsbD0iYmxhY2siIHN0cm9rZT0iYmxhY2siIHBvaW50cz0iMTU0LjQ5MywtNjUuODY3MSAxNTQuNzM4LC03Ni40NTkxIDE2MS4xNTIsLTY4LjAyNTggMTU0LjQ5MywtNjUuODY3MSIvPgo8L2c+CjwhLS0gRSAtLT4KPGcgaWQ9Im5vZGU1IiBjbGFzcz0ibm9kZSI+PHRpdGxlPkU8L3RpdGxlPgo8ZWxsaXBzZSBmaWxsPSJ3aGl0ZSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIyIiBjeD0iMjIwLjYxOCIgY3k9Ii04Ni41MDIzIiByeD0iMjQuMDQxNiIgcnk9IjI0LjA0MTYiLz4KPHRleHQgdGV4dC1hbmNob3I9Im1pZGRsZSIgeD0iMjIwLjYxOCIgeT0iLTc5LjcwMjMiIGZvbnQtZmFtaWx5PSJCaXRzdHJlYW0gVmVyYSBTYW5zIiBmb250LXNpemU9IjIyLjAwIj5FPC90ZXh0Pgo8L2c+CjwhLS0gQyYjNDU7Jmd0O0UgLS0+CjxnIGlkPSJlZGdlNyIgY2xhc3M9ImVkZ2UiPjx0aXRsZT5DJiM0NTsmZ3Q7RTwvdGl0bGU+CjxwYXRoIGZpbGw9Im5vbmUiIHN0cm9rZT0iYmxhY2siIHN0cm9rZS13aWR0aD0iMiIgZD0iTTE4NS43ODYsLTUwLjUxNTVDMTg5LjMxLC01NC4xNTU3IDE5My4wODUsLTU4LjA1NTkgMTk2LjgwMiwtNjEuODk2NyIvPgo8cG9seWdvbiBmaWxsPSJibGFjayIgc3Ryb2tlPSJibGFjayIgcG9pbnRzPSIxOTQuMzI5LC02NC4zNzQzIDIwMy43OTksLTY5LjEyNTUgMTk5LjM1OSwtNTkuNTA1OCAxOTQuMzI5LC02NC4zNzQzIi8+CjwvZz4KPCEtLSBEJiM0NTsmZ3Q7QiAtLT4KPGcgaWQ9ImVkZ2U1IiBjbGFzcz0iZWRnZSI+PHRpdGxlPkQmIzQ1OyZndDtCPC90aXRsZT4KPHBhdGggZmlsbD0ibm9uZSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIyIiBkPSJNMTMwLjYyNCwtODIuMDU1QzEyNy4wODQsLTc4LjQwMTYgMTIzLjI4LC03NC40NzU4IDExOS41MjgsLTcwLjYwMzUiLz4KPHBvbHlnb24gZmlsbD0iYmxhY2siIHN0cm9rZT0iYmxhY2siIHBvaW50cz0iMTIxLjkzMiwtNjguMDU1IDExMi40NiwtNjMuMzA4NiAxMTYuOTA1LC03Mi45MjYgMTIxLjkzMiwtNjguMDU1Ii8+CjwvZz4KPCEtLSBFJiM0NTsmZ3Q7RCAtLT4KPGcgaWQ9ImVkZ2U4IiBjbGFzcz0iZWRnZSI+PHRpdGxlPkUmIzQ1OyZndDtEPC90aXRsZT4KPHBhdGggZmlsbD0ibm9uZSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIyIiBkPSJNMTk2LjYyMiwtOTAuNjkzMUMxOTEuNjM2LC05MS41NjM4IDE4Ni4yOTQsLTkyLjQ5NjcgMTgxLjAzNCwtOTMuNDE1NCIvPgo8cG9seWdvbiBmaWxsPSJibGFjayIgc3Ryb2tlPSJibGFjayIgcG9pbnRzPSIxODAuMzgyLC04OS45NzYyIDE3MS4xMzMsLTk1LjE0NDUgMTgxLjU4NiwtOTYuODcxOCAxODAuMzgyLC04OS45NzYyIi8+CjwvZz4KPC9nPgo8L3N2Zz4%3D">
+
+</p><pre>&gt; data Node = A | B | C | D | E deriving (Eq, Ord, Bounded, Ix, Show)
+&gt;
+&gt; exampleGraph :: Graph Node
+&gt; exampleGraph = graph [(A :-&gt; B), (B :-&gt; C), (C :-&gt; D), (C :-&gt; E), (D :-&gt; B), (E :-&gt; D)]</pre>
+
+<p>We can print the adjacency matrix of this example directed graph.
+
+</p><pre>*StarSemiring&gt; printMatrix exampleGraph
+0 * 0 0 0
+0 0 * 0 0
+0 0 0 * *
+0 * 0 0 0
+0 0 0 * 0</pre>
+
+<p>To compute the reflexive-transitive closure of this directed graph we will turn <code>Connection</code>
+ into our first example of a *-semiring.  The additive operation is 
+parallel composition of connections and the multiplicative operation is 
+the sequential composition of connections.
+
+</p><pre>&gt; instance Semiring Connection where
+&gt;   zero = Unconnected
+&gt;   Connected   &lt;+&gt; _ = Connected
+&gt;   Unconnected &lt;+&gt; x = x
+&gt;   one = Connected
+&gt;   Unconnected &lt;.&gt; _ = Unconnected
+&gt;   Connected   &lt;.&gt; x = x</pre>
+
+<p>Asteration is the solution to <var>x</var><sup>&#8727;</sup>&nbsp;=&nbsp;1&nbsp;+&nbsp;<var>x</var><var>x</var><sup>&#8727;</sup>, but, for <code>Connection</code>s, 1 plus anything is 1. Therefore the asteration of anything is <code>one</code>.
+
+</p><pre>&gt; instance StarSemiring Connection where
+&gt;   star _ = one</pre>
+
+<p>We note that this <code>Connection</code> *-semiring is also a Kleene algebra.
+
+</p><pre>&gt; instance KleeneAlgebra Connection where</pre>
+
+<p>Now that <code>Connections</code> are a *-semiring, that means matrices over <code>Connections</code> is a *-semiring.
+In particular, <code>Graph Node</code> is also a *-semiring.
+We can now compute the reflexive-transitive closure of our example directed graph using the asteration operation.
+
+</p><pre>*StarSemiring&gt; printMatrix . star $ exampleGraph
+* * * * *
+0 * * * *
+0 * * * *
+0 * * * *
+0 * * * *</pre>
+
+<p>If you want just the transitive closure we simply compute <var>x</var><sup>+</sup>.
+
+</p><pre>*StarSemiring&gt; printMatrix . plus $ exampleGraph
+0 * * * *
+0 * * * *
+0 * * * *
+0 * * * *
+0 * * * *</pre>
+
+<p>This is great for deciding if two nodes are connected or not; however
+ it does not tell us how to get from one node to another.
+To denote paths through a directed graph we will need to label the 
+edges.
+For directed graphs with at most one edge from a source node to a 
+destination node, we can simply label the edge by the two endpoints.
+For directed multigraphs we would need to assign names some other way, 
+but this simple labeling method will do for our example.
+
+</p><pre>&gt; type LabeledGraph i = Matrix i (Maybe (Edge i))
+&gt;
+&gt; labelGraph :: (Ix i, Bounded i) =&gt; Graph i -&gt; LabeledGraph i
+&gt; labelGraph m = f &lt;$&gt; m &lt;*&gt; matrix id
+&gt;  where
+&gt;   f Connected   l = Just l
+&gt;   f Unconnected _ = Nothing
+&gt;
+&gt; connect :: (Ix i) =&gt; Matrix i (Maybe a) -&gt; Graph i
+&gt; connect = fmap (maybe Unconnected (const Connected))</pre>
+
+<p>Let us look at our labeled adjacency matrix.
+
+</p><pre>*StarSemiring&gt; printMatrix . labelGraph $ exampleGraph
+Nothing Just (AB) Nothing   Nothing   Nothing
+Nothing Nothing   Just (BC) Nothing   Nothing
+Nothing Nothing   Nothing   Just (CD) Just (CE)
+Nothing Just (DB) Nothing   Nothing   Nothing
+Nothing Nothing   Nothing   Just (ED) Nothing</pre>
+
+<p>We see that each edge in the graph is label with the pair of its source node and its target node.
+When there is no edge between a pair of nodes, the adjacency matrix is marked with <code>Nothing</code>.
+
+</p><p>There could be an infinite number of paths from a given starting node to a target node.
+However, we can represent this infinite number of paths in a finite way by using regular expressions.
+Regular expressions will be our third example of a *-semiring (the second example was matrices of <code>Connections</code>).
+First we make a type for expressions of *-semirings over a given set of variable names.
+
+</p><pre>&gt; data StarSemiringExpression a
+&gt;   = Var a
+&gt;   | Or (StarSemiringExpression a) (StarSemiringExpression a)
+&gt;   | Seq (StarSemiringExpression a) (StarSemiringExpression a)
+&gt;   | Star (StarSemiringExpression a)
+&gt;   | None
+&gt;   | Empty</pre>
+
+<p>The type of regular expressions over a given set of variables will be
+ a copy of this type of *-semiring expressions; however regular 
+expressions will have its own instance of equality and other operations,
+ so we give it a new type.
+
+</p><pre>&gt; newtype RE a = RE (StarSemiringExpression a)
+&gt;
+&gt; re :: a -&gt; RE a
+&gt; re = RE . Var
+&gt;
+&gt; instance Eq a =&gt; Eq (RE a) where
+&gt;   (RE x) == (RE y) = (todo)</pre>
+
+<p>An algorithm for deciding if two regular expressions are equal is 
+beyond the scope of this blog post.
+The problem is PSPACE complete, so it can be quite slow.
+We will not need to compare regular expressions in this post so we can 
+skip this implementation for now and instead focus on the operations for
+ the *-semiring.
+
+</p><p>While we could simply implement *-semiring operations directly as the constructors of <code>StarSemiringExpression</code>,
+ instead we will take advantage of this opportunity to implement a few 
+local simplifications: identities of &#949; and 0, absorption of 0, 
+idempotency of asteration, and the following theorems of regular 
+expressions:</p><ul>
+<li>&#949; + &#949; = &#949;</li>
+<li>&#949; + <var>x</var><sup>&#8727;</sup> = <var>x</var><sup>&#8727;</sup></li>
+<li><var>x</var><sup>&#8727;</sup> + &#949; = <var>x</var><sup>&#8727;</sup></li>
+</ul>
+
+<pre>&gt; instance Semiring (RE a) where
+&gt;   zero = RE None
+&gt;   RE None &lt;+&gt; y = y
+&gt;   x &lt;+&gt; RE None = x
+&gt;   RE Empty &lt;+&gt; RE Empty    = RE Empty
+&gt;   RE Empty &lt;+&gt; RE (Star y) = RE (Star y)
+&gt;   RE (Star x) &lt;+&gt; RE Empty = RE (Star x)
+&gt;   RE x &lt;+&gt; RE y            = RE (x `Or` y)
+&gt;   one = RE Empty
+&gt;   RE Empty &lt;.&gt; y = y
+&gt;   x &lt;.&gt; RE Empty = x
+&gt;   RE None &lt;.&gt; _  = RE None
+&gt;   _ &lt;.&gt; RE None  = RE None
+&gt;   RE x &lt;.&gt; RE y  = RE (x `Seq` y)
+&gt;
+&gt; instance StarSemiring (RE a) where
+&gt;   star (RE None)     = RE Empty
+&gt;   star (RE Empty)    = RE Empty
+&gt;   star (RE (Star x)) = star (RE x)
+&gt;   star (RE x)        = RE (Star x)</pre>
+
+<p>We note that regular expressions are Kleene algebras.  In fact, they 
+are the mother of all Kleene algebras, which we will make use of later.
+
+</p><pre>&gt; instance KleeneAlgebra (RE a) where</pre>
+
+<p>Now we can transform our labeled graph into a matrix of regular expressions.
+
+</p><pre>&gt; reGraph :: (Ix i) =&gt; Matrix i (Maybe a) -&gt; Matrix i (RE a)
+&gt; reGraph = fmap (maybe zero re)</pre>
+
+<pre>*StarSemiring&gt; printMatrix . reGraph . labelGraph $ exampleGraph
+0 (AB) 0    0    0
+0 0    (BC) 0    0
+0 0    0    (CD) (CE)
+0 (DB) 0    0    0
+0 0    0    (ED) 0</pre>
+
+<p>Then we can compute all the regular expressions for the paths through these edges starting from and ending with any given nodes.
+The regular expression we compute is not going to be minimal in general.
+In fact, the <a href="data:text/html;charset=utf-8;base64,PCFET0NUWVBFIEhUTUwgUFVCTElDICItLy9XM0MvL0RURCBIVE1MIDQuMC8vRU4iPgo8aHRtbCBsYW5nPSJlbiI+CiA8aGVhZD4KICA8dGl0bGU+cHJpbnRNYXRyaXggLiBzdGFyIC4gcmVHcmFwaCAuIGxhYmVsR3JhcGggJCBleGFtcGxlR3JhcGg8L3RpdGxlPgogPC9oZWFkPgogPGJvZHk+CjxwcmU+CipTdGFyU2VtaXJpbmc+IHByaW50TWF0cml4IC4gc3RhciAuIHJlR3JhcGggLiBsYWJlbEdyYXBoICQgZXhhbXBsZUdyYXBoCiZlcHNpbG9uOyAoQUIpfChBQikoKEJDKSgoQ0QpfChDRSkoRUQpKShEQikpKihCQykoKENEKXwoQ0UpKEVEKSkoREIpICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAoQUIpKChCQykoKENEKXwoQ0UpKEVEKSkoREIpKSooQkMpICAgICAgICAgICAgICAgICAgICAgICAgIChBQikoKEJDKSgoQ0QpfChDRSkoRUQpKShEQikpKihCQykoKENEKXwoQ0UpKEVEKSkgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgKEFCKSgoQkMpKChDRCl8KENFKShFRCkpKERCKSkqKEJDKShDRSkgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAowICZlcHNpbG9uO3woQkMpKChDRCl8KENFKShFRCkpKERCKXwoQkMpKChDRCl8KENFKShFRCkpKERCKSgoQkMpKChDRCl8KENFKShFRCkpKERCKSkqKEJDKSgoQ0QpfChDRSkoRUQpKShEQikgKEJDKXwoQkMpKChDRCl8KENFKShFRCkpKERCKSgoQkMpKChDRCl8KENFKShFRCkpKERCKSkqKEJDKSAoQkMpKChDRCl8KENFKShFRCkpfChCQykoKENEKXwoQ0UpKEVEKSkoREIpKChCQykoKENEKXwoQ0UpKEVEKSkoREIpKSooQkMpKChDRCl8KENFKShFRCkpIChCQykoQ0UpfChCQykoKENEKXwoQ0UpKEVEKSkoREIpKChCQykoKENEKXwoQ0UpKEVEKSkoREIpKSooQkMpKENFKSAKMCAoKENEKXwoQ0UpKEVEKSkoREIpfCgoQ0QpfChDRSkoRUQpKShEQikoKEJDKSgoQ0QpfChDRSkoRUQpKShEQikpKihCQykoKENEKXwoQ0UpKEVEKSkoREIpICAgICAgICAgICAmZXBzaWxvbjt8KChDRCl8KENFKShFRCkpKERCKSgoQkMpKChDRCl8KENFKShFRCkpKERCKSkqKEJDKSAgICAgICAgKENEKXwoQ0UpKEVEKXwoKENEKXwoQ0UpKEVEKSkoREIpKChCQykoKENEKXwoQ0UpKEVEKSkoREIpKSooQkMpKChDRCl8KENFKShFRCkpICAgICAgICAgICAoQ0UpfCgoQ0QpfChDRSkoRUQpKShEQikoKEJDKSgoQ0QpfChDRSkoRUQpKShEQikpKihCQykoQ0UpICAgICAgICAgCjAgKERCKXwoREIpKChCQykoKENEKXwoQ0UpKEVEKSkoREIpKSooQkMpKChDRCl8KENFKShFRCkpKERCKSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgKERCKSgoQkMpKChDRCl8KENFKShFRCkpKERCKSkqKEJDKSAgICAgICAgICAgICAgICAgICAgICAgICAmZXBzaWxvbjt8KERCKSgoQkMpKChDRCl8KENFKShFRCkpKERCKSkqKEJDKSgoQ0QpfChDRSkoRUQpKSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgKERCKSgoQkMpKChDRCl8KENFKShFRCkpKERCKSkqKEJDKShDRSkgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAowIChFRCkoREIpfChFRCkoREIpKChCQykoKENEKXwoQ0UpKEVEKSkoREIpKSooQkMpKChDRCl8KENFKShFRCkpKERCKSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIChFRCkoREIpKChCQykoKENEKXwoQ0UpKEVEKSkoREIpKSooQkMpICAgICAgICAgICAgICAgICAgICAgKEVEKXwoRUQpKERCKSgoQkMpKChDRCl8KENFKShFRCkpKERCKSkqKEJDKSgoQ0QpfChDRSkoRUQpKSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAmZXBzaWxvbjt8KEVEKShEQikoKEJDKSgoQ0QpfChDRSkoRUQpKShEQikpKihCQykoQ0UpICAgICAgICAgICAgICAgICAgICAgICAKCjwvcHJlPgogPC9ib2R5Pgo8L2h0bWw+Cg%3D%3D">resulting matrix</a> is a bit too big to fit in this blog so I will leave it for you to try to compute <code>printMatrix . star . reGraph . labelGraph $ exampleGraph</code> yourself.
+
+</p><p>If you look again at what we have done, you will see that we can 
+view the graph as a finite automaton.
+What we have done is computed all the languages accepted by that finite 
+automaton for every pair of possible initial and final states.
+Although we only had at most one edge between any pair of nodes in our 
+example, if we instead create a directed multigraph and label it with 
+tokens accepted by that edge, the asteration operation will still 
+compute the regular expression of the language accepted for every pair 
+of initial and final nodes.
+In fact, we can label edges with arbitrary regular expressions.
+In particular we can express &#949;-NFAs.
+
+</p><p>Next, let us look at the question from the title of this post: how to compute the shortest path between two nodes in a graph.
+We will take our example graph from the <a title="Dijkstra's algorithm" href="http://en.wikipedia.org/w/index.php?title=Dijkstra%27s_algorithm&amp;oldid=443411519">Wikipedia page for Dijkstra's algorithm</a>.
+We label the edges with their weights.
+
+</p><pre>&gt; data Node2 = N1 | N2 | N3 | N4 | N5 | N6
+&gt;              deriving (Eq, Ord, Bounded, Ix, Show)
+&gt;
+&gt; exampleEdgeList2 :: (Edge Node2) -&gt; Maybe Integer
+&gt; exampleEdgeList2 (i :-&gt; j) =
+&gt;   (lookup (i :-&gt; j) edges) `mplus` (lookup (j :-&gt; i) edges)
+&gt;  where
+&gt;   edges = [(N1 :-&gt; N2, 7), (N1 :-&gt; N3, 9), (N1 :-&gt; N6,14)
+&gt;           ,(N2 :-&gt; N3,10), (N2 :-&gt; N4,15)
+&gt;           ,(N3 :-&gt; N4,11), (N3 :-&gt; N6, 2)
+&gt;           ,(N4 :-&gt; N5, 6)
+&gt;           ,(N5 :-&gt; N6, 9)
+&gt;           ]
+&gt; exampleGraph2 :: Matrix Node2 (Maybe Integer)
+&gt; exampleGraph2 = matrix exampleEdgeList2</pre>
+
+<p>To compute the shortest path we will define a tropical *-semiring.
+A tropical semiring over non-negative numbers has minimum as the 
+additive operation, and addition as the multiplicative operation.
+We add positive infinity as the identity element for minimum.
+
+</p><pre>&gt; data Tropical a = Tropical a -- only non-negative values allowed
+&gt;                 | Infinity deriving (Eq, Ord)
+&gt;
+&gt; instance (Ord a, Num a) =&gt; Semiring (Tropical a) where
+&gt;   zero = Infinity
+&gt;   Infinity     &lt;+&gt; y            = y
+&gt;   x            &lt;+&gt; Infinity     = x
+&gt;   (Tropical a) &lt;+&gt; (Tropical b) = Tropical (min a b)
+&gt;   one = Tropical 0
+&gt;   Infinity &lt;.&gt; _ = Infinity
+&gt;   _ &lt;.&gt; Infinity = Infinity
+&gt;   (Tropical x) &lt;.&gt; (Tropical y) = Tropical (x + y)</pre>
+
+<p>In a tropical semiring the multiplicative identity, <code>one</code>, is 0 which is the smallest element possible.
+This means the asteration operation is the constant <code>one</code>.
+
+</p><pre>&gt; instance (Ord a, Num a) =&gt; StarSemiring (Tropical a) where
+&gt;   star _ = one</pre>
+
+<p>We note that the tropical *-semiring is a Kleene algebra.
+
+</p><pre>&gt; instance (Ord a, Num a) =&gt; KleeneAlgebra (Tropical a) where</pre>
+
+<p>We can convert the labels in our example matrix to tropical values.
+The asteration of this tropical matrix will then tell us the minimum distance between any two nodes in the graph.
+
+</p><pre>*StarSemiring&gt; printMatrix . fmap (maybe zero Tropical) $ exampleGraph2
+&#8734;  7  9  &#8734;  &#8734; 14
+7  &#8734;  10 15 &#8734; &#8734;
+9  10 &#8734;  11 &#8734; 2
+&#8734;  15 11 &#8734;  6 &#8734;
+&#8734;  &#8734;  &#8734;  6  &#8734; 9
+14 &#8734;  2  &#8734;  9 &#8734;
+
+*StarSemiring&gt; printMatrix . star . fmap (maybe zero Tropical) $ exampleGraph2
+0  7  9  20 20 11
+7  0  10 15 21 12
+9  10 0  11 11 2
+20 15 11 0  6  13
+20 21 11 6  0  9
+11 12 2  13 9  0</pre>
+
+<p>Again, this only tells us what the minimum distance between two nodes is.  It does not tell us what a minimal path is.
+To find what the minimal paths are, we need to annotate our values with ancillary data.
+We create a new type called <code>ShortestPath</code> to contain this annotation.
+
+</p><pre>&gt; data ShortestPath a b = ShortestPath (Tropical a) b
+&gt;
+&gt; instance Functor (ShortestPath a) where
+&gt;   fmap f (ShortestPath a x) = ShortestPath a (f x)
+&gt;
+&gt; extract :: ShortestPath a b -&gt; b
+&gt; extract (ShortestPath _ x) = x</pre>
+
+<p>When we compute the additive operation of the shortest path we will 
+take ancillary data corresponding to the smaller tropical value.
+In case both tropical values are equal, then we take both pieces of 
+ancillary data together by adding them.
+The multiplicative operation is simply lifted from the tropical 
+operation and the multiplicative operation on the ancillary data.
+
+</p><pre>&gt; instance (Ord a, Num a, Semiring b) =&gt; Semiring (ShortestPath a b) where
+&gt;   zero = ShortestPath zero zero
+&gt;   ShortestPath a x &lt;+&gt; ShortestPath b y | c &lt; b = ShortestPath a x
+&gt;                                         | c &lt; a = ShortestPath b y
+&gt;                                         | otherwise = ShortestPath c (x &lt;+&gt; y)
+&gt;    where
+&gt;     c = a &lt;+&gt; b
+&gt;   one = ShortestPath one one
+&gt;   ShortestPath a x &lt;.&gt; ShortestPath b y = ShortestPath (a &lt;.&gt; b) (x &lt;.&gt; y)</pre>
+
+<p>The star operation simply returns <code>one</code> (which is the tropical value 0) in almost all cases.
+However, when the tropical value is already <code>one</code> (which is the tropical value 0), we can freely
+sequence this value as many times as we want.
+Therefore, in this case we return the asteration of the ancillary data.
+
+</p><pre>&gt; instance (Ord a, Num a, StarSemiring b) =&gt; StarSemiring (ShortestPath a b) where
+&gt;   star (ShortestPath x b) | x == one  = ShortestPath one (star b)
+&gt;                           | otherwise = ShortestPath one one</pre>
+
+<p>We note that the resulting structure is a Kleene algebra (I think) when the ancillary data is.
+
+</p><pre>&gt; instance (Ord a, Num a, KleeneAlgebra b) =&gt; KleeneAlgebra (ShortestPath a b) where</pre>
+
+<p>If we annotate our example graph with edge names for regular 
+expressions we can compute the regular expression corresponding to all 
+the shortest paths in a graph.
+
+</p><pre>&gt; annotate :: (Ix i, Bounded i, Ord a, Num a, Semiring b) =&gt;
+&gt;             ((Edge i) -&gt; b) -&gt; Matrix i (Maybe a) -&gt; Matrix i (ShortestPath a b)
+&gt; annotate f m = go &lt;$&gt; m &lt;*&gt; labelGraph (connect m)
+&gt;  where
+&gt;   go v e = ShortestPath (maybe zero Tropical v) (maybe zero f e)</pre>
+
+<pre>*StarSemiring&gt; printMatrix . star . annotate re $ exampleGraph2
+&#949;[0]                   (N1N2)[7]                           (N1N3)[9]        (N1N3)(N3N4)[20] (N1N3)(N3N6)(N6N5)[20]              (N1N3)(N3N6)[11]
+(N2N1)[7]              &#949;[0]                                (N2N3)[10]       (N2N4)[15]       (N2N4)(N4N5)|(N2N3)(N3N6)(N6N5)[21] (N2N3)(N3N6)[12]
+(N3N1)[9]              (N3N2)[10]                          &#949;[0]             (N3N4)[11]       (N3N6)(N6N5)[11]                    (N3N6)[2]
+(N4N3)(N3N1)[20]       (N4N2)[15]                          (N4N3)[11]       &#949;[0]             (N4N5)[6]                           (N4N3)(N3N6)[13]
+(N5N6)(N6N3)(N3N1)[20] (N5N4)(N4N2)|(N5N6)(N6N3)(N3N2)[21] (N5N6)(N6N3)[11] (N5N4)[6]        &#949;[0]                                (N5N6)[9]
+(N6N3)(N3N1)[11]       (N6N3)(N3N2)[12]                    (N6N3)[2]        (N6N3)(N3N4)[13] (N6N5)[9]                           &#949;[0]</pre>
+
+<p>Having a regular expression of paths is nice, but what if we want to just find one shortest path.
+What we can do is compute a lazy list of all shortest paths and take the first one.
+We call a lazy list of lists of labels a <code>Language</code> and it is our next example of a *-semiring.
+
+</p><pre>&gt; newtype Language a = Language [[a]] deriving Show
+&gt;
+&gt; letter x = Language [[x]]</pre>
+
+<p>The *-semiring operations on a language are ones for regular languages.
+
+</p><pre>&gt; instance Semiring (Language a) where
+&gt;   zero = Language []
+&gt;   (Language x) &lt;+&gt; (Language y) = Language (x `interleave` y)
+&gt;    where
+&gt;     []     `interleave` ys = ys
+&gt;     (x:xs) `interleave` ys = x:(ys `interleave` xs)
+&gt;   one = Language (pure [])
+&gt;   (Language x) &lt;.&gt; (Language y) = Language (dovetail (++) x y)
+&gt;    where
+&gt;     dovetail f l1 l2 = concat $ go l1 (scanl (flip (:)) [] l2)
+&gt;      where
+&gt;       go [] _           = []
+&gt;       go l1 l2@(x:y:ys) = (zipWith f l1 x):(go l1 (y:ys))
+&gt;       go l1@(a:as) [x]  = (zipWith f l1 x):(go as [x])
+&gt;
+&gt; instance StarSemiring (Language a) where
+&gt;   star (Language l) = one &lt;+&gt; plusList (filter (not . null) l)
+&gt;    where
+&gt;     plusList [] = zero
+&gt;     plusList l  = star (Language l) &lt;.&gt; (Language l)</pre>
+
+<p>Here we allow the representation of languages to contain repeated strings.
+With some care I think should be possible to eliminate repeated strings and perhaps even make the stream sorted.
+
+</p><p>Again, we note that <code>Languages</code> are a Kleene algebra.
+
+</p><pre>&gt; instance KleeneAlgebra (Language a) where</pre>
+
+<p>Now we can annotate our <code>ShortestPath</code> with a language instead of a regular expression and extract the first shortest path, if it exists.
+
+</p><pre>&gt; someWord :: Language a -&gt; Maybe [a]
+&gt; someWord (Language l) = listToMaybe l</pre>
+
+<pre>*StarSemiring&gt; printMatrix . fmap (someWord . extract) . star . annotate letter $ exampleGraph2
+Just []                     Just [(N1N2)]        Just [(N1N3)]        Just [(N1N3),(N3N4)] Just [(N1N3),(N3N6),(N6N5)] Just [(N1N3),(N3N6)]
+Just [(N2N1)]               Just []              Just [(N2N3)]        Just [(N2N4)]        Just [(N2N4),(N4N5)]        Just [(N2N3),(N3N6)]
+Just [(N3N1)]               Just [(N3N2)]        Just []              Just [(N3N4)]        Just [(N3N6),(N6N5)]        Just [(N3N6)]
+Just [(N4N3),(N3N1)]        Just [(N4N2)]        Just [(N4N3)]        Just []              Just [(N4N5)]               Just [(N4N3),(N3N6)]
+Just [(N5N6),(N6N3),(N3N1)] Just [(N5N4),(N4N2)] Just [(N5N6),(N6N3)] Just [(N5N4)]        Just []                     Just [(N5N6)]
+Just [(N6N3),(N3N1)]        Just [(N6N3),(N3N2)] Just [(N6N3)]        Just [(N6N3),(N3N4)] Just [(N6N5)]               Just []</pre>
+
+<p>This is one very general way of computing shortest paths.  By varying
+ the *-semiring, you can compute largest capacity paths, and most 
+reliable paths in the same way.
+
+</p><p>Recall that I said that regular expressions were the mother of 
+all Kleene algebras.
+What I mean by this is that regular expressions can interpret any other 
+Kleene algebra if we have an interpretation for the variables.
+
+</p><pre>&gt; evalRE :: (KleeneAlgebra a) =&gt; (l -&gt; a) -&gt; RE l -&gt; a
+&gt; evalRE f (RE None)        = zero
+&gt; evalRE f (RE Empty)       = one
+&gt; evalRE f (RE (Var a))     = f a
+&gt; evalRE f (RE (Star x))    = star (evalRE f (RE x))
+&gt; evalRE f (RE (x `Or` y))  = (evalRE f (RE x)) &lt;+&gt; (evalRE f (RE y))
+&gt; evalRE f (RE (x `Seq` y)) = (evalRE f (RE x)) &lt;.&gt; (evalRE f (RE y))</pre>
+
+<p>This means that instead of computing the asteration of a matrices of 
+different values that we are interested in, we can compute one matrix of
+ regular expressions and then interpret that matrix in any Kleene 
+algebra to get the same result.
+This is quite useful if we want to look at many different Kleene algebra
+ interpretations of a single graph because we only have to compute the 
+asteration of a matrix once.
+However, the resulting regular expressions are often large, so if you 
+are interested in only one Kleene algebra interpretation, it can be 
+faster to compute it directly.
+
+</p><pre>*StarSemiring&gt; printMatrix . fmap (evalRE Tropical) . star . reGraph $ exampleGraph2
+0  7  9  20 20 11
+7  0  10 15 21 12
+9  10 0  11 11 2
+20 15 11 0  6  13
+20 21 11 6  0  9
+11 12 2  13 9  0</pre>
+
+<p>The last example I want to show is how to solve linear equations.
+This will also be our first example of a *-semiring that is not a Kleene algebra.
+If we take the one point compactification of the real line, we can turn it into a *-semiring.
+The additive and multiplicative operations are the usual addition and multiplication operations.
+However we need to take care that 0 absorbs all elements under multiplication, including &#8734;.
+
+</p><pre>&gt; data Compact a = Real a
+&gt;                | Inf
+&gt;
+&gt; instance (Eq a, Num a) =&gt; Semiring (Compact a) where
+&gt;   zero = Real 0
+&gt;   Inf    &lt;+&gt; _      = Inf
+&gt;   _      &lt;+&gt; Inf    = Inf
+&gt;   Real x &lt;+&gt; Real y = Real (x + y)
+&gt;   one = Real 1
+&gt;   Real 0 &lt;.&gt; _      = Real 0
+&gt;   _      &lt;.&gt; Real 0 = Real 0
+&gt;   Inf    &lt;.&gt; _      = Inf
+&gt;   _      &lt;.&gt; Inf    = Inf
+&gt;   Real x &lt;.&gt; Real y = Real (x * y)</pre>
+
+<p>The asteration of a number is the solution to <var>x</var><sup>&#8727;</sup>&nbsp;=&nbsp;1&nbsp;+&nbsp;<var>x</var><var>x</var><sup>&#8727;</sup>, which by simple algebra <del datetime="20110808T203701Z">must</del><ins datetime="20110808T203701Z">can</ins> be <var>x</var><sup>&#8727;</sup>&nbsp;:=&nbsp;(1&nbsp;-&nbsp;<var>x</var>)<sup>-1</sup>.
+We define 1<sup>&#8727;</sup>&nbsp;:=&nbsp;&#8734;, and &#8734;<sup>&#8727;</sup>&nbsp;:=&nbsp;&#8734; to satisfy the recursion equation.
+
+</p><pre>&gt; instance (Eq a, Fractional a) =&gt; StarSemiring (Compact a) where
+&gt;   star (Real 1) = Inf
+&gt;   star (Real x) = Real (recip (1 - x))
+&gt;   star Inf      = Inf</pre>
+
+<p>Matrix asteration solves fixpoints of affine equations.  Notice that <var>A</var><sup>&#8727;</sup><var>B</var>&nbsp;=&nbsp;(<var>A</var><var>A</var><sup>&#8727;</sup>&nbsp;+&nbsp;1)<var>B</var>, and hence <var>A</var><sup>&#8727;</sup><var>B</var>&nbsp;=&nbsp;<var>A</var><var>A</var><sup>&#8727;</sup><var>B</var>&nbsp;+&nbsp;<var>B</var>.  Therefore <var>A</var><sup>&#8727;</sup><var>B</var> is <del datetime="20110808T203701Z">the</del><ins datetime="20110808T203701Z">a</ins> solution to the equation <var>X</var>&nbsp;=&nbsp;<var>A</var><var>X</var>+&nbsp;<var>B</var>, which is a very common problem in linear algebra.
+
+</p><p>Lets compute the asteration of an 2×2 example matrix.
+
+</p><pre>&gt; exampleMatrix :: Num a =&gt; Matrix Bool a
+&gt; exampleMatrix = matrix value
+&gt;  where
+&gt;   value (False :-&gt; False) = 2
+&gt;   value (False :-&gt; True ) = 1
+&gt;   value (True  :-&gt; False) = 0
+&gt;   value (True  :-&gt; True ) = 2</pre>
+
+<pre>*StarSemiring&gt; printMatrix . fmap Real $ exampleMatrix
+2 1
+0 2
+
+*StarSemiring&gt; printMatrix . star . fmap Real $ exampleMatrix
+-1.0 1.0
+0.0  -1.0</pre>
+
+<p>Asteration can be used to solve traditional problems in linear algebra too.  Asteration can be used to invert a matrix <var>A</var> because (1&nbsp;-&nbsp;<var>A</var>)<sup>&#8727;</sup>&nbsp;=&nbsp;<var>A</var><sup>-1</sup>.
+
+</p><pre>&gt; inverse :: (Eq a, Ix i, Bounded i, Fractional a) =&gt;
+&gt;            Matrix i a -&gt; Matrix i (Compact a)
+&gt; inverse m = star (one &lt;+&gt; fmap (Real . negate) m)</pre>
+
+<pre>*StarSemiring&gt; printMatrix . inverse $ exampleMatrix
+0.5 -0.25
+0.0 0.5</pre>
+
+<p>This *-semiring is not a Kleene algebra, so we cannot deduce this 
+asteration from a matrix of regular expressions.
+However we can deduce it from a matrix of *-semiring expressions.
+*-semiring expressions have the same syntax as regular expressions; 
+however it has fewer laws.
+This means we can implement *-semiring expressions as a *-semiring in a 
+similar manner to our implementation of regular expression.
+All we have to do is remove some of the simplifications that we had 
+implemented for regular expressions.
+
+</p><pre>&gt; instance Semiring (StarSemiringExpression a) where
+&gt;   zero = None
+&gt;   None &lt;+&gt; y = y
+&gt;   x &lt;+&gt; None = x
+&gt;   x &lt;+&gt; y    = x `Or` y
+&gt;   one = Empty
+&gt;   Empty &lt;.&gt; y     = y
+&gt;   x     &lt;.&gt; Empty = x
+&gt;   None  &lt;.&gt; _     = None
+&gt;   _     &lt;.&gt; None  = None
+&gt;   x     &lt;.&gt; y     = x `Seq` y
+&gt;
+&gt; instance StarSemiring (StarSemiringExpression a) where
+&gt;   star None     = Empty
+&gt;   star x        = Star x</pre>
+
+<p>Similar to regular expressions, we can interpret any *-semiring expression in any *-semiring.
+
+</p><pre>&gt; evalSSE :: (StarSemiring a) =&gt; (l -&gt; a) -&gt; StarSemiringExpression l -&gt; a
+&gt; evalSSE f None        = zero
+&gt; evalSSE f Empty       = one
+&gt; evalSSE f (Var a)     = f a
+&gt; evalSSE f (Star x)    = star (evalSSE f x)
+&gt; evalSSE f (x `Or` y)  = (evalSSE f x) &lt;+&gt; (evalSSE f y)
+&gt; evalSSE f (x `Seq` y) = (evalSSE f x) &lt;.&gt; (evalSSE f y)</pre>
+
+<p>Now, if we want to, we can save an intermediate matrix of *-semiring 
+expressions and interpret it using real numbers, or any other *-semiring
+ (including any Kleene algebra) later.
+
+</p><pre>*StarSemiring&gt; printMatrix . fmap (evalSSE Real) . star . fmap Var $ exampleMatrix
+-1.0 1.0
+0.0  -1.0</pre>
+
+<p>That it for this introduction to *-semirings and their applications.
+In the next installment we will see a faster method to compute the 
+shortest path/regular expression for just a particular pair of source 
+and target nodes by using eliminants.
+
+</p><p>References:</p><ul>
+<li><a href="http://geomete.com/abdali/papers/TCviaElim.pdf"><em>Transitive closure and related semiring properties via eliminants</em></a> by S. Kamal Abdali and B. David Saunders</li>
+<li><a href="http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.71.7650"><em>Algebraic Structures for Transitive Closure</em></a> by Rafael Penaloza</li>
+</ul>
+
+Below you will find an appendix of functions that completes this module.
+
+<pre>&gt; entireRange :: (Ix i, Bounded i) =&gt; [i]
+&gt; entireRange = range (minBound, maxBound)
+&gt;
+&gt; instance (Ix i) =&gt; Functor (Matrix i) where
+&gt;   fmap f (Matrix m) = Matrix (fmap f m)
+&gt;
+&gt; instance (Ix i, Bounded i) =&gt; Applicative (Matrix i) where
+&gt;   pure x = matrix (const x)
+&gt;   Matrix f &lt;*&gt; Matrix x = matrix (\(i :-&gt; j) -&gt; (f!(i :-&gt; j)) (x!(i :-&gt; j)))
+&gt;
+&gt; transpose :: (Ix i, Bounded i) =&gt; Matrix i a -&gt; Matrix i a
+&gt; transpose (Matrix m) = matrix (\(i :-&gt; j) -&gt; m!(j :-&gt; i))
+&gt;
+&gt; showMatrix :: (Ix i, Bounded i, Show a) =&gt; Matrix i a -&gt; String
+&gt; showMatrix (Matrix m) =
+&gt;   unlines [concat [pad (m'!(i :-&gt; j)) j | j &lt;- entireRange]
+&gt;           | i &lt;- entireRange]
+&gt;  where
+&gt;   m' = fmap show m
+&gt;   lenm = fmap length m'
+&gt;   len j = maximum [lenm!(i :-&gt; j) | i &lt;- entireRange]
+&gt;   pad s j = s ++ replicate ((len j) - (length s) +1) ' '
+&gt;
+&gt; printMatrix :: (Ix i, Bounded i, Show a) =&gt; Matrix i a -&gt; IO ()
+&gt; printMatrix = putStrLn . showMatrix
+&gt;
+&gt; instance Show Connection  where
+&gt;   show Connected   = "*"
+&gt;   show Unconnected = "0"
+&gt;
+&gt; instance Show a =&gt; Show (Edge a) where
+&gt;   showsPrec _ (i :-&gt; j) = showParen True (shows i . shows j)
+&gt;
+&gt; instance Show a =&gt; Show (StarSemiringExpression a) where
+&gt;   showsPrec d (Var a) = showParen (d &gt; 10) (shows a)
+&gt;   showsPrec d Empty = showParen (d &gt; 10) (showString "&#949;")
+&gt;   showsPrec d None = showParen (d &gt; 10) (showString "0")
+&gt;   showsPrec d (Star x) = showParen (d &gt; 9) (showsPrec 9 x . showString "*")
+&gt;   showsPrec d (x `Or` y) = showParen (d &gt; 6) showStr
+&gt;    where
+&gt;     showStr = showsPrec 6 x . showString "|" . showsPrec 6 y
+&gt;   showsPrec d (x `Seq` y) = showParen (d &gt; 7) showStr
+&gt;    where
+&gt;     showStr = showsPrec 7 x . showsPrec 7 y
+&gt;
+&gt; instance Show a =&gt; Show (RE a) where
+&gt;   showsPrec d (RE x) = showsPrec d x
+&gt;
+&gt; instance Show a =&gt; Show (Tropical a) where
+&gt;   show (Tropical a) = show a
+&gt;   show Infinity = "&#8734;"
+&gt;
+&gt; instance (Show a, Show b) =&gt; Show (ShortestPath a b) where
+&gt;   show (ShortestPath a x) = show x ++ "[" ++ show a ++ "]"
+&gt;
+&gt; instance (Show a) =&gt; Show (Compact a) where
+&gt;   show (Real a) = show a
+&gt;   show Inf = "&#8734;"
+&gt;
+&gt; todo = error "TODO"</pre>
+
+<p>Edits:</p><ol>
+<li><ins datetime="20110808T185158Z">Removed <code>Enum</code> constraints following a tip by L. Augustsson.</ins></li>
+<li><ins datetime="20110809T170359Z">Implemented <code>dovetail</code> to properly sequence two potentially infinite languages.</ins></li>
+<li><ins datetime="20110810T143147Z">Performing <code>foldr</code>-<code>map</code> fusion in <code>star</code> function for <code>Matrix</code>.  It looks more natural this way anyway.</ins></li>
+<li><ins datetime="20110907T152547Z">Defining <code>Matrix</code> to be indexed by <code>Edge</code>.</ins></li>
+<li><ins datetime="20130110T205841Z">Adding <code>Eq</code> constraints to add compatibility with modern GHC prelude.</ins></li>
+<li><ins datetime="20190505T011514Z">Renamed 
+Gauss-Jordan-Floyd-Warshall-McNaughton-Yamada algorithm as 
+Gauss-Jordan-Floyd-Warshall-Kleene algorithm, since it is Kleene’s 
+algorithm that converts DFAs to regular expressions.</ins></li>
+</ol>
+
+</div>
+<h2>Tags</h2>
+<div class="tags"><a class="tag" href="https://r6.ca/blog/tag/haskell.html" rel="tag">haskell</a>, <a class="tag" href="https://r6.ca/blog/tag/programming.html" rel="tag">programming</a></div>
+<h2>Responses</h2>
+<div class="responses"><ul>
+<li><a href="http://www.reddit.com/r/haskell/comments/jc7pb/a_very_general_method_of_computing_shortest_paths/">Haskell Reddit comments</a></li>
+<li><a href="http://antilamer.livejournal.com/369920.html">&#1047;&#1074;&#1077;&#1079;&#1076;&#1072;&#1085;&#1091;&#1090;&#1099;&#1077; &#1087;&#1086;&#1083;&#1091;&#1082;&#1086;&#1083;&#1100;&#1094;&#1072; &#1080; &#1080;&#1093; &#1087;&#1088;&#1080;&#1084;&#1077;&#1085;&#1077;&#1085;&#1080;&#1103;</a> — <a href="http://antilamer.livejournal.com/">Eugene Kirpichov</a></li>
+<li><a href="http://ivan-ghandhi.livejournal.com/1717084.html">&#1083;&#1102;&#1073;&#1086;&#1087;&#1099;&#1090;&#1085;&#1099;&#1081; &#1083;&#1080;&#1085;&#1082;</a> — <a href="http://antilamer.livejournal.com/">Vlad Patryshev</a>
+
+</li>
+</ul></div>
+<hr id="FOOTERRULE">
+<div><address><a href="https://r6.ca/">Russell O’Connor</a>: <a title="Russell’s Email Address" href="mailto:%72%6f%63%6f%6e%6e%6f%72%40%74%68%65%6f%72%65%6d%2e%63%61" rev="made">contact me</a></address></div>
+
+
+</body></html>
