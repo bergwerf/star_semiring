@@ -140,8 +140,8 @@ Implicit Types l : fin n.
 Lemma assoc_mat_mul_l i j :
   ((a×b)×c)@i@j ≡ Σ ((λ k, Σ ((λ l, a@i@l * b@l@k * c@k@j)<$>`[n]`))<$>`[p]`).
 Proof.
-rewrite lookup_mat_mul. erewrite list_fmap_ext;
-[|intros k; rewrite lookup_mat_mul; done|reflexivity].
+erewrite lookup_mat_mul, list_fmap_ext;
+[|repeat intro; rewrite lookup_mat_mul; done].
 apply equiv_Σ_fmap; intros k _. etrans; [apply right_distr_Σ|].
 rewrite <-list_fmap_compose; done.
 Qed.
@@ -149,8 +149,8 @@ Qed.
 Lemma assoc_mat_mul_r i j :
   (a×(b×c))@i@j ≡ Σ ((λ k, Σ ((λ l, a@i@l * b@l@k * c@k@j)<$>`[n]`))<$>`[p]`).
 Proof.
-rewrite lookup_mat_mul. erewrite list_fmap_ext;
-[|intros k; rewrite lookup_mat_mul; done|reflexivity].
+erewrite lookup_mat_mul, list_fmap_ext;
+[|repeat intro; rewrite lookup_mat_mul; done].
 etrans. apply equiv_Σ_fmap; intros l _. etrans. apply left_distr_Σ.
 rewrite <-list_fmap_compose; unfold compose. apply equiv_Σ_fmap; intros k _.
 2: apply Σ_swap_index. apply assoc; c.
